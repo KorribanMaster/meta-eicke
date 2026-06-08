@@ -67,3 +67,18 @@ ROOTFS_B_LABEL = "rootfs_b"
 
 # Install the kernel into the rootfs (/boot/bzImage) so an A/B rootfs update
 # also updates the kernel; GRUB loads the kernel from the active rootfs.
+
+# ---------------------------------------------------------------------------
+# Yocto Project public mirrors (speed up builds)
+# ---------------------------------------------------------------------------
+# Shared-state (prebuilt artifacts) mirror — the big build-time win. Pairing it
+# with the upstream hash-equivalence server lets unchanged recipes resolve to
+# the same signatures the Yocto autobuilder used, so they download instead of
+# rebuild. (BB_HASHSERVE = "auto" and BB_SIGNATURE_HANDLER = "OEEquivHash" are
+# already poky defaults on scarthgap.)
+BB_HASHSERVE_UPSTREAM = "wss://hashserv.yoctoproject.org/ws"
+SSTATE_MIRRORS ?= "file://.* http://sstate.yoctoproject.org/all/PATH;downloadfilename=PATH"
+
+# Source (downloads) pre-mirror — faster, more robust source fetches.
+INHERIT += "own-mirrors"
+SOURCE_MIRROR_URL = "http://downloads.yoctoproject.org/mirror/sources/"
