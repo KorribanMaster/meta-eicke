@@ -1,0 +1,23 @@
+# A/B (dual-copy) disk layout for GRUB-EFI on x86-64, used with SWUpdate.
+#
+#   p1  esp       vfat   EFI System Partition: GRUB + grub.cfg + grubenv
+#   p2  rootfs_a  ext4   active rootfs (populated at build time)
+#   p3  rootfs_b  ext4   standby rootfs (empty; written by SWUpdate)
+#   p4  data      ext4   persistent data / SWUpdate state
+#
+# GRUB reads `rootdev` from grubenv to choose between rootfs_a and rootfs_b;
+# the kernel lives in /boot inside the selected rootfs.
+
+bootloader --ptable gpt --timeout=3
+
+part /boot --source bootimg-efi --sourceparams="loader=grub-efi,configfile=grub.cfg" \
+     --label esp --part-name esp --fstype=vfat --active --align 1024 --size 64 --use-uuid
+
+part / --source rootfs --label ${ROOTFS_A_LABEL} --part-name rootfs_a \
+     --fstype=ext4 --align 1024 --use-uuid
+
+part --label ${ROOTFS_B_LABEL} --part-name rootfs_b \
+     --fstype=ext4 --align 1024 --size 512 --use-uuid
+
+part /data --label data --part-name data \
+     --fstype=ext4 --align 1024 --size 256 --use-uuid --fsuuid 0xDA7ADA7A

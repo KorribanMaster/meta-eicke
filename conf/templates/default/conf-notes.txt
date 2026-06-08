@@ -1,0 +1,14 @@
+### Shell environment set up for builds. ###
+
+You can now run 'bitbake <target>'.
+
+Common targets are:
+    eicke-image           - the bootable GRUB-EFI / A-B / SWUpdate disk image (.wic)
+    eicke-update-image    - the SWUpdate update artifact (.swu)
+    core-image-minimal    - stock poky minimal image
+
+Boot the emulated (qemux86-64) image via EFI/GRUB with:
+    runqemu eicke-image wic ovmf nographic
+
+For real hardware set MACHINE = "genericx86-64" in conf/local.conf and flash
+the resulting .wic with bmaptool/dd.

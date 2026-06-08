@@ -1,0 +1,59 @@
+/*
+ * SWUpdate description for the Eicke A/B (dual-copy) update.
+ *
+ * Two modes select which slot to write:
+ *   - stable.copy1 : run while booted on slot A -> writes rootfs_b, boots B next
+ *   - stable.copy2 : run while booted on slot B -> writes rootfs_a, boots A next
+ *
+ * Apply (from the running target), e.g. when currently on slot A:
+ *     swupdate -i eicke-update-image-<machine>.swu -e stable,copy1
+ *
+ * The "@eicke-image.ext4" token is replaced with the artifact's sha256 by the
+ * meta-swupdate `swupdate` bbclass at build time. NOTE: confirm the exact
+ * artifact filename/token for your meta-swupdate version with
+ * `bitbake -e eicke-update-image | grep -i SWUPDATE`.
+ */
+software =
+{
+    version = "1.0";
+    description = "Eicke A/B rootfs update";
+
+    hardware-compatibility: [ "1.0" ];
+
+    stable:
+    {
+        copy1:
+        {
+            images: (
+                {
+                    filename = "eicke-image.ext4";
+                    device   = "/dev/disk/by-partlabel/rootfs_b";
+                    type     = "raw";
+                    sha256   = "@eicke-image.ext4";
+                }
+            );
+            bootenv: (
+                { name = "rootdev";   value = "rootfs_b"; },
+                { name = "ustate";    value = "1"; },
+                { name = "bootcount"; value = "0"; }
+            );
+        };
+
+        copy2:
+        {
+            images: (
+                {
+                    filename = "eicke-image.ext4";
+                    device   = "/dev/disk/by-partlabel/rootfs_a";
+                    type     = "raw";
+                    sha256   = "@eicke-image.ext4";
+                }
+            );
+            bootenv: (
+                { name = "rootdev";   value = "rootfs_a"; },
+                { name = "ustate";    value = "1"; },
+                { name = "bootcount"; value = "0"; }
+            );
+        };
+    };
+}

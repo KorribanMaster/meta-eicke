@@ -1,0 +1,69 @@
+#
+# This is the meta-eicke build configuration (TEMPLATECONF). It is poky's
+# default local.conf with the additions needed for the GRUB-EFI + A/B WIC +
+# SWUpdate image. See the marked block at the bottom.
+#
+
+#
+# Machine Selection
+#
+# Default to the emulated 64-bit x86 machine (boot with `runqemu`).
+# For real 64-bit x86 hardware, set:  MACHINE = "genericx86-64"
+MACHINE ??= "qemux86-64"
+
+#
+# Where to place downloads and shared state (kept across builds for speed)
+#
+#DL_DIR ?= "${TOPDIR}/downloads"
+#SSTATE_DIR ?= "${TOPDIR}/sstate-cache"
+
+#
+# Distro selection
+#
+DISTRO ?= "poky"
+
+# Package management
+PACKAGE_CLASSES ?= "package_rpm"
+
+# Development conveniences (empty root password, debug tools). Remove for
+# production images.
+EXTRA_IMAGE_FEATURES ?= "debug-tweaks"
+
+USER_CLASSES ?= "buildstats"
+
+# Sanity / disk monitoring
+PATCHRESOLVE = "noop"
+BB_DISKMON_DIRS ??= "\
+    STOPTASKS,${TMPDIR},1G,100K \
+    STOPTASKS,${DL_DIR},1G,100K \
+    STOPTASKS,${SSTATE_DIR},1G,100K \
+    STOPTASKS,/tmp,100M,100K \
+    HALT,${TMPDIR},100M,1K \
+    HALT,${DL_DIR},100M,1K \
+    HALT,${SSTATE_DIR},100M,1K \
+    HALT,/tmp,10M,1K"
+
+CONF_VERSION = "2"
+
+# ---------------------------------------------------------------------------
+# meta-eicke: GRUB-EFI + A/B WIC + SWUpdate
+# ---------------------------------------------------------------------------
+
+# Boot via EFI/GRUB
+MACHINE_FEATURES:append = " efi"
+EFI_PROVIDER = "grub-efi"
+
+# Our custom A/B partition layout. WKS_FILE_DEPENDS pulls in the EFI/grub
+# artefacts the .wks needs.
+WKS_FILE = "eicke-ab.wks.in"
+
+# Produce a .wic (full disk image) plus an ext4 rootfs that the SWUpdate
+# .swu bundles as the A/B update payload.
+IMAGE_FSTYPES:append = " wic wic.bmap ext4"
+
+# Labels referenced by both the .wks and the GRUB config / sw-description.
+ROOTFS_A_LABEL = "rootfs_a"
+ROOTFS_B_LABEL = "rootfs_b"
+
+# Install the kernel into the rootfs (/boot/bzImage) so an A/B rootfs update
+# also updates the kernel; GRUB loads the kernel from the active rootfs.

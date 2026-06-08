@@ -1,0 +1,54 @@
+# SWUpdate build configuration for meta-eicke (GRUB-EFI A/B, local updates).
+#
+# NOTE: this is a hand-maintained Kconfig fragment. Regenerate authoritatively
+# with `bitbake -c menuconfig swupdate` and `bitbake -c diffconfig swupdate`
+# if symbol names drift between SWUpdate releases. The key choices are the GRUB
+# bootloader handler and the grubenv path, which MUST match wic/grub.cfg and the
+# mount layout (ESP mounted at /boot).
+
+CONFIG_HAVE_DOT_CONFIG=y
+
+#
+# Bootloader: GRUB environment block
+#
+CONFIG_BOOTLOADER_DEFAULT_GRUB=y
+CONFIG_BOOTLOADER_GRUB=y
+CONFIG_GRUBENV_PATH="/boot/EFI/BOOT/grubenv"
+# CONFIG_BOOTLOADER_EBG is not set
+# CONFIG_UBOOT is not set
+
+#
+# Parser
+#
+CONFIG_LIBCONFIG=y
+CONFIG_PARSERROOT=""
+
+#
+# Image handlers
+#
+CONFIG_RAW=y
+CONFIG_RAWHANDLER=y
+CONFIG_LUASCRIPTHANDLER=y
+CONFIG_SHELLSCRIPTHANDLER=y
+CONFIG_BOOTLOADERHANDLER=y
+CONFIG_ARCHIVE=y
+
+#
+# Interfaces: local IPC + embedded web server (swupdate-www). No hawkBit.
+#
+CONFIG_MONGOOSE=y
+CONFIG_MONGOOSEIPV6=y
+CONFIG_MENU=y
+CONFIG_DOWNLOAD=y
+CONFIG_CURL=y
+# CONFIG_SURICATTA is not set
+
+#
+# Crypto (verification can be enabled later; off for the basic image)
+#
+# CONFIG_SIGNED_IMAGES is not set
+
+#
+# Lua (used by embedded-script selection in sw-description)
+#
+CONFIG_LUA=y
