@@ -26,3 +26,8 @@ IMAGE_INSTALL:append = " \
 # bootimg-partition IMAGE_BOOT_FILES) for files placed on the ESP.
 IMAGE_EFI_BOOT_FILES:append = " grubenv;EFI/BOOT/grubenv"
 do_image_wic[depends] += "grubenv:do_deploy"
+
+# grub.cfg is pulled in at wic runtime via the wks 'bootloader --configfile',
+# so bitbake doesn't track it automatically; register it as a task input so
+# edits to the A/B boot config actually trigger a wic rebuild.
+do_image_wic[file-checksums] += "${THISDIR}/../../wic/grub.cfg:True"
