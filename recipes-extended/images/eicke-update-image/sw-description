@@ -8,10 +8,11 @@
  * Apply (from the running target), e.g. when currently on slot A:
  *     swupdate -i eicke-update-image-<machine>.swu -e stable,copy1
  *
- * The "@eicke-image.ext4" token is replaced with the artifact's sha256 by the
- * meta-swupdate `swupdate` bbclass at build time. NOTE: confirm the exact
- * artifact filename/token for your meta-swupdate version with
- * `bitbake -e eicke-update-image | grep -i SWUPDATE`.
+ * @@IMAGE_MACHINE_SUFFIX@@ is expanded by the swupdate bbclass to e.g.
+ * "-qemux86-64", giving the deployed rootfs basename
+ * "eicke-image-qemux86-64.rootfs.ext4" (matching SWUPDATE_IMAGES_FSTYPES). The
+ * leading "@" on the sha256 line is the class's sha256 placeholder, replaced
+ * with the artifact's real hash at build time.
  */
 software =
 {
@@ -26,10 +27,10 @@ software =
         {
             images: (
                 {
-                    filename = "eicke-image.ext4";
+                    filename = "eicke-image@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
                     device   = "/dev/disk/by-partlabel/rootfs_b";
                     type     = "raw";
-                    sha256   = "@eicke-image.ext4";
+                    sha256   = "@eicke-image@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
                 }
             );
             bootenv: (
@@ -43,10 +44,10 @@ software =
         {
             images: (
                 {
-                    filename = "eicke-image.ext4";
+                    filename = "eicke-image@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
                     device   = "/dev/disk/by-partlabel/rootfs_a";
                     type     = "raw";
-                    sha256   = "@eicke-image.ext4";
+                    sha256   = "@eicke-image@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
                 }
             );
             bootenv: (

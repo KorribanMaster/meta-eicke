@@ -7,9 +7,11 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 inherit swupdate
 
 # The rootfs that gets shipped inside the .swu, and the format SWUpdate writes
-# to the standby partition (raw ext4 image).
+# to the standby partition (raw ext4 image). In scarthgap the deployed rootfs is
+# named "<image>-<machine>.rootfs.ext4", so the fstype flag must include the
+# ".rootfs" infix for the class to find it in DEPLOY_DIR_IMAGE.
 SWUPDATE_IMAGES = "eicke-image"
-SWUPDATE_IMAGES_FSTYPES[eicke-image] = ".ext4"
+SWUPDATE_IMAGES_FSTYPES[eicke-image] = ".rootfs.ext4"
 
 # sw-description (+ optional embedded lua) is taken from SRC_URI by the class.
 SRC_URI = "file://sw-description"
