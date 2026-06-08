@@ -65,7 +65,8 @@ CONFIG_BOOTLOADER_DEFAULT_GRUB=y
 CONFIG_SSL_IMPL_OPENSSL=y
 # CONFIG_SSL_IMPL_MBEDTLS is not set
 # CONFIG_DOWNLOAD is not set
-# CONFIG_HASH_VERIFY is not set
+# Verify the sha256 supplied in sw-description (we embed real hashes at build).
+CONFIG_HASH_VERIFY=y
 # CONFIG_SIGNED_IMAGES is not set
 # CONFIG_ENCRYPTED_IMAGES is not set
 # CONFIG_SURICATTA is not set

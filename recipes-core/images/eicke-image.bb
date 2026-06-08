@@ -15,6 +15,7 @@ IMAGE_INSTALL:append = " \
     kernel-image \
     e2fsprogs-mke2fs \
     util-linux-blkid \
+    libgcc \
 "
 
 # The ESP holds GRUB + grub.cfg + grubenv and is mounted at /boot so SWUpdate
