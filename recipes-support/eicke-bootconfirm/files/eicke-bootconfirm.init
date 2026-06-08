@@ -1,0 +1,40 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          eicke-bootconfirm
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Confirm a healthy boot for the SWUpdate A/B scheme
+# Description:       Clears the swupdate trial state (ustate/bootcount) in the
+#                    GRUB environment once userspace has come up, so GRUB does
+#                    not roll back to the previous slot on the next reboot.
+### END INIT INFO
+#
+# This is a minimal "we reached userspace" confirmation. For a stricter policy,
+# gate the grub-editenv call on an application health check before clearing
+# ustate.
+
+GRUBENV=/boot/EFI/BOOT/grubenv
+
+case "$1" in
+    start)
+        if [ ! -f "$GRUBENV" ]; then
+            logger -t eicke-bootconfirm "grubenv $GRUBENV not found; skipping"
+            exit 0
+        fi
+        # Only act while an update is on trial.
+        ustate=$(grub-editenv "$GRUBENV" list 2>/dev/null | sed -n 's/^ustate=//p')
+        if [ "$ustate" = "1" ]; then
+            grub-editenv "$GRUBENV" set ustate=0 bootcount=0
+            logger -t eicke-bootconfirm "boot confirmed: ustate -> 0 (slot accepted)"
+        fi
+        ;;
+    stop|restart|reload|force-reload|status)
+        ;;
+    *)
+        echo "Usage: $0 {start}" >&2
+        exit 1
+        ;;
+esac
+exit 0

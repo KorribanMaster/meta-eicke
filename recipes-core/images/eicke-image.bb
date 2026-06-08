@@ -16,6 +16,7 @@ IMAGE_INSTALL:append = " \
     e2fsprogs-mke2fs \
     util-linux-blkid \
     libgcc \
+    eicke-bootconfirm \
 "
 
 # The ESP holds GRUB + grub.cfg + grubenv and is mounted at /boot so SWUpdate
