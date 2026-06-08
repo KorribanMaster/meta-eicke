@@ -9,8 +9,8 @@
 # the kernel lives in /boot inside the selected rootfs. Each `part` directive
 # MUST be on a single line (wic parses lines with shlex; no `\` continuations).
 
-bootloader --ptable gpt --timeout=3
-part /boot --source bootimg-efi --sourceparams="loader=grub-efi,configfile=grub.cfg" --label esp --part-name esp --fstype=vfat --active --align 1024 --size 64 --use-uuid
+bootloader --ptable gpt --timeout=3 --configfile=grub.cfg
+part /boot --source bootimg-efi --sourceparams="loader=grub-efi" --label esp --part-name esp --fstype=vfat --active --align 1024 --size 64 --use-uuid
 part / --source rootfs --label ${ROOTFS_A_LABEL} --part-name rootfs_a --fstype=ext4 --align 1024 --use-uuid
 part --label ${ROOTFS_B_LABEL} --part-name rootfs_b --fstype=ext4 --align 1024 --size 512 --use-uuid
 part /data --label data --part-name data --fstype=ext4 --align 1024 --size 256 --use-uuid
