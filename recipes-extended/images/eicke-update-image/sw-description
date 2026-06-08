@@ -19,8 +19,6 @@ software =
     version = "1.0";
     description = "Eicke A/B rootfs update";
 
-    hardware-compatibility: [ "1.0" ];
-
     stable:
     {
         copy1:
