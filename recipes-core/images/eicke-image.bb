@@ -32,3 +32,16 @@ do_image_wic[depends] += "grubenv:do_deploy"
 # so bitbake doesn't track it automatically; register it as a task input so
 # edits to the A/B boot config actually trigger a wic rebuild.
 do_image_wic[file-checksums] += "${THISDIR}/../../wic/grub.cfg:True"
+
+# Mount the ESP at /boot (so swupdate + the confirm service can read/write the
+# grubenv) and the data partition, in the image's OWN fstab. This must live in
+# the rootfs (not wic's per-partition fstab patch) so EVERY A/B slot has it —
+# including images swupdate writes raw to a standby slot. Mount by filesystem
+# LABEL (set by the .wks --label, stable across A/B raw writes of the rootfs).
+fstab_add_eicke_mounts() {
+    cat >> ${IMAGE_ROOTFS}${sysconfdir}/fstab <<EOF
+LABEL=esp            /boot                vfat       defaults,sync         0  2
+LABEL=data           /data                ext4       defaults              0  2
+EOF
+}
+ROOTFS_POSTPROCESS_COMMAND += "fstab_add_eicke_mounts;"

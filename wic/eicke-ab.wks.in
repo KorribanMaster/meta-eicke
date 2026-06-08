@@ -10,7 +10,12 @@
 # MUST be on a single line (wic parses lines with shlex; no `\` continuations).
 
 bootloader --ptable gpt --timeout=3 --configfile=grub.cfg
-part /boot --source bootimg-efi --sourceparams="loader=grub-efi" --label esp --part-name esp --fstype=vfat --active --align 1024 --size 64 --use-uuid
+# --no-fstab-update on esp/data: the rootfs /etc/fstab provides these mounts
+# itself (see eicke-image.bb), so every A/B slot — including images swupdate
+# writes raw to a standby slot — mounts the ESP at /boot (for grubenv) and the
+# data partition consistently. Letting wic add its own (PARTUUID-based) entries
+# would only patch slot A and duplicate the mount there.
+part /boot --source bootimg-efi --sourceparams="loader=grub-efi" --label esp --part-name esp --fstype=vfat --active --align 1024 --size 64 --use-uuid --no-fstab-update
 part / --source rootfs --label ${ROOTFS_A_LABEL} --part-name rootfs_a --fstype=ext4 --align 1024 --use-uuid
 part --label ${ROOTFS_B_LABEL} --part-name rootfs_b --fstype=ext4 --align 1024 --size 512 --use-uuid
-part /data --label data --part-name data --fstype=ext4 --align 1024 --size 256 --use-uuid
+part /data --label data --part-name data --fstype=ext4 --align 1024 --size 256 --use-uuid --no-fstab-update
