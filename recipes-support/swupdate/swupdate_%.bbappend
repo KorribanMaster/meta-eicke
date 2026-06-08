@@ -1,8 +1,8 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
-# Use our SWUpdate build configuration (GRUB bootloader handler + ext4/raw
-# handler + local web/IPC update, no suricatta/hawkBit).
+# Override SWUpdate's build configuration with ours. The recipe is defconfig-
+# driven: do_configure cats this onto .config and runs olddefconfig, and it
+# scans the defconfig text to compute DEPENDS (e.g. mtd-utils only when
+# CONFIG_MTD/CFI=y). Our defconfig disables MTD/CFI and enables the GRUB
+# environment bootloader backend + handler.
 SRC_URI += "file://defconfig"
-
-# Pull in the GRUB environment bootloader handler at build time.
-PACKAGECONFIG:append = " bootloader-grub"

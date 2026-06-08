@@ -1,54 +1,104 @@
-# SWUpdate build configuration for meta-eicke (GRUB-EFI A/B, local updates).
 #
-# NOTE: this is a hand-maintained Kconfig fragment. Regenerate authoritatively
-# with `bitbake -c menuconfig swupdate` and `bitbake -c diffconfig swupdate`
-# if symbol names drift between SWUpdate releases. The key choices are the GRUB
-# bootloader handler and the grubenv path, which MUST match wic/grub.cfg and the
-# mount layout (ESP mounted at /boot).
-
+# SWUpdate configuration for meta-eicke (x86-64, GRUB-EFI A/B, local updates).
+#
+# Based on meta-swupdate's shipped default defconfig, with these changes:
+#   * MTD/CFI disabled  -> x86 uses block devices, not raw flash (avoids the
+#     mtd-utils/libmtd.h dependency the recipe only adds when CONFIG_MTD/CFI=y).
+#   * U-Boot backend off, GRUB environment backend on + made the default.
+#   * Bootloader handler enabled so sw-description `bootenv` entries are applied
+#     (flips `rootdev`/`ustate` in grubenv after writing the standby slot).
+#   * GRUBENV_PATH points at the ESP (mounted at /boot) -> /boot/EFI/BOOT/grubenv.
+#   * Local updates only: Mongoose web server + Lua/raw/script handlers; no
+#     CURL/DOWNLOAD/SURICATTA (no hawkBit).
+#
+# Regenerate authoritatively with `bitbake -c menuconfig swupdate` if needed.
+#
 CONFIG_HAVE_DOT_CONFIG=y
 
 #
-# Bootloader: GRUB environment block
+# General Configuration
 #
-CONFIG_BOOTLOADER_DEFAULT_GRUB=y
-CONFIG_BOOTLOADER_GRUB=y
-CONFIG_GRUBENV_PATH="/boot/EFI/BOOT/grubenv"
-# CONFIG_BOOTLOADER_EBG is not set
-# CONFIG_UBOOT is not set
+# CONFIG_CURL is not set
+# CONFIG_CURL_SSL is not set
+# CONFIG_SYSTEMD is not set
+CONFIG_DEFAULT_CONFIG_FILE="/etc/swupdate.cfg"
+CONFIG_SCRIPTS=y
+CONFIG_HW_COMPATIBILITY=y
+CONFIG_HW_COMPATIBILITY_FILE="/etc/hwrevision"
+CONFIG_SW_VERSIONS_FILE="/etc/sw-versions"
 
 #
-# Parser
+# Socket Paths
+#
+CONFIG_SOCKET_CTRL_PATH=""
+CONFIG_SOCKET_PROGRESS_PATH=""
+CONFIG_SOCKET_REMOTE_HANDLER_DIRECTORY="/tmp/"
+# CONFIG_MTD is not set
+CONFIG_LUA=y
+CONFIG_LUAPKG="lua"
+# CONFIG_FEATURE_SYSLOG is not set
+
+#
+# Build Options
+#
+CONFIG_CROSS_COMPILE=""
+CONFIG_SYSROOT=""
+CONFIG_EXTRA_LDLIBS=""
+
+#
+# Debugging Options
+#
+# CONFIG_DEBUG is not set
+# CONFIG_WERROR is not set
+# CONFIG_NOCLEANUP is not set
+
+#
+# Bootloader: GRUB environment block (no U-Boot, no EFI Boot Guard)
+#
+# CONFIG_BOOTLOADER_EBG is not set
+# CONFIG_UBOOT is not set
+# CONFIG_BOOTLOADER_NONE is not set
+CONFIG_BOOTLOADER_GRUB=y
+CONFIG_GRUBENV_PATH="/boot/EFI/BOOT/grubenv"
+CONFIG_BOOTLOADER_DEFAULT_GRUB=y
+# CONFIG_SSL_IMPL_NONE is not set
+CONFIG_SSL_IMPL_OPENSSL=y
+# CONFIG_SSL_IMPL_MBEDTLS is not set
+# CONFIG_DOWNLOAD is not set
+# CONFIG_HASH_VERIFY is not set
+# CONFIG_SIGNED_IMAGES is not set
+# CONFIG_ENCRYPTED_IMAGES is not set
+# CONFIG_SURICATTA is not set
+CONFIG_WEBSERVER=y
+CONFIG_MONGOOSE=y
+CONFIG_MONGOOSEIPV6=y
+CONFIG_MONGOOSESSL=y
+CONFIG_GUNZIP=y
+# CONFIG_ZSTD is not set
+
+#
+# Parser Features
 #
 CONFIG_LIBCONFIG=y
 CONFIG_PARSERROOT=""
+# CONFIG_JSON is not set
+# CONFIG_LUAEXTERNAL is not set
+# CONFIG_SETSWDESCRIPTION is not set
 
 #
-# Image handlers
+# Image Handlers
 #
+# CONFIG_UBIVOL is not set
+# CONFIG_CFI is not set
+# CONFIG_DISKPART is not set
 CONFIG_RAW=y
-CONFIG_RAWHANDLER=y
+# CONFIG_RDIFFHANDLER is not set
 CONFIG_LUASCRIPTHANDLER=y
 CONFIG_SHELLSCRIPTHANDLER=y
+# CONFIG_HANDLER_IN_LUA is not set
+# CONFIG_ARCHIVE is not set
+# CONFIG_REMOTE_HANDLER is not set
+# CONFIG_SWUFORWARDER_HANDLER is not set
 CONFIG_BOOTLOADERHANDLER=y
-CONFIG_ARCHIVE=y
-
-#
-# Interfaces: local IPC + embedded web server (swupdate-www). No hawkBit.
-#
-CONFIG_MONGOOSE=y
-CONFIG_MONGOOSEIPV6=y
-CONFIG_MENU=y
-CONFIG_DOWNLOAD=y
-CONFIG_CURL=y
-# CONFIG_SURICATTA is not set
-
-#
-# Crypto (verification can be enabled later; off for the basic image)
-#
-# CONFIG_SIGNED_IMAGES is not set
-
-#
-# Lua (used by embedded-script selection in sw-description)
-#
-CONFIG_LUA=y
+# CONFIG_SSBLSWITCH is not set
+# CONFIG_UCFWHANDLER is not set
