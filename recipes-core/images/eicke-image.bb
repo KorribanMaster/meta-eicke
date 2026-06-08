@@ -22,5 +22,7 @@ IMAGE_INSTALL:append = " \
 # (and grub-editenv) can read/write the boot environment. Seed an initial
 # grubenv onto the ESP at EFI/BOOT/grubenv (swupdate's GRUB handler won't
 # create it) via the grubenv recipe + IMAGE_BOOT_FILES.
-IMAGE_BOOT_FILES:append = " grubenv;EFI/BOOT/grubenv"
+# NOTE: the bootimg-efi wic plugin reads IMAGE_EFI_BOOT_FILES (not the
+# bootimg-partition IMAGE_BOOT_FILES) for files placed on the ESP.
+IMAGE_EFI_BOOT_FILES:append = " grubenv;EFI/BOOT/grubenv"
 do_image_wic[depends] += "grubenv:do_deploy"
