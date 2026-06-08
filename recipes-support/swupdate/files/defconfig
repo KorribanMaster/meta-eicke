@@ -23,8 +23,11 @@ CONFIG_HAVE_DOT_CONFIG=y
 # CONFIG_SYSTEMD is not set
 CONFIG_DEFAULT_CONFIG_FILE="/etc/swupdate.cfg"
 CONFIG_SCRIPTS=y
-CONFIG_HW_COMPATIBILITY=y
-CONFIG_HW_COMPATIBILITY_FILE="/etc/hwrevision"
+# No hardware-revision gating: this is a generic x86 image with no
+# /etc/hwrevision. With HW_COMPATIBILITY compiled in, swupdate hard-fails
+# parsing when that file is absent. Re-enable + ship /etc/hwrevision for
+# production board gating.
+# CONFIG_HW_COMPATIBILITY is not set
 CONFIG_SW_VERSIONS_FILE="/etc/sw-versions"
 
 #
