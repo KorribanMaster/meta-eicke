@@ -19,4 +19,8 @@ IMAGE_INSTALL:append = " \
 "
 
 # The ESP holds GRUB + grub.cfg + grubenv and is mounted at /boot so SWUpdate
-# (and grub-editenv) can read/write the boot environment.
+# (and grub-editenv) can read/write the boot environment. Seed an initial
+# grubenv onto the ESP at EFI/BOOT/grubenv (swupdate's GRUB handler won't
+# create it) via the grubenv recipe + IMAGE_BOOT_FILES.
+IMAGE_BOOT_FILES:append = " grubenv;EFI/BOOT/grubenv"
+do_image_wic[depends] += "grubenv:do_deploy"
