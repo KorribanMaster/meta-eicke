@@ -17,6 +17,8 @@ IMAGE_INSTALL:append = " \
     util-linux-blkid \
     libgcc \
     eicke-bootconfirm \
+    zynq-pcie-rproc \
+    zynq-rtu-firmware \
 "
 
 # The ESP holds GRUB + grub.cfg + grubenv and is mounted at /boot so SWUpdate
