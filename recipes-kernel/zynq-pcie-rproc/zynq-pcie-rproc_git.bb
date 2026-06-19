@@ -14,8 +14,9 @@ inherit module
 SRC_URI = "git://git@github.com/KorribanMaster/openamp_pcie.git;protocol=ssh;branch=main"
 SRCREV = "e020a51297d0b254ab8cd9970fa555767bb1b7fc"
 
-# Kbuild (obj-m) lives in the driver/ subdir of the repo.
-S = "${UNPACKDIR}/git/driver"
+# Kbuild (obj-m) lives in the driver/ subdir of the repo. wrynose unpacks git
+# SRC_URIs to ${UNPACKDIR}/${BP} (BB_GIT_DEFAULT_DESTSUFFIX = "${BP}"), not /git.
+S = "${UNPACKDIR}/${BP}/driver"
 
 # The driver Makefile selects the kernel tree via `KDIR ?= /lib/modules/$(uname
 # -r)/build` (a host build), whereas module.bbclass exports KERNEL_SRC/
