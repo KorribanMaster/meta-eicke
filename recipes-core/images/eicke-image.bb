@@ -33,7 +33,7 @@ do_image_wic[depends] += "grubenv:do_deploy"
 # grub.cfg is pulled in at wic runtime via the wks 'bootloader --configfile',
 # so bitbake doesn't track it automatically; register it as a task input so
 # edits to the A/B boot config actually trigger a wic rebuild.
-do_image_wic[file-checksums] += "${THISDIR}/../../wic/grub.cfg:True"
+do_image_wic[file-checksums] += "${THISDIR}/../../files/wic/grub.cfg:True"
 
 # Mount the ESP at /boot (so swupdate + the confirm service can read/write the
 # grubenv) and the data partition, in the image's OWN fstab. This must live in
