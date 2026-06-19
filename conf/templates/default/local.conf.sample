@@ -26,9 +26,9 @@ DISTRO ?= "eicke"
 # Package management
 PACKAGE_CLASSES ?= "package_rpm"
 
-# Development conveniences (empty root password, debug tools). Remove for
-# production images.
-EXTRA_IMAGE_FEATURES ?= "debug-tweaks"
+# Development conveniences (empty/loginable root). Remove for production images.
+# (wrynose dropped the "debug-tweaks" umbrella feature; use the granular ones.)
+EXTRA_IMAGE_FEATURES ?= "allow-empty-password empty-root-password allow-root-login"
 
 USER_CLASSES ?= "buildstats"
 
