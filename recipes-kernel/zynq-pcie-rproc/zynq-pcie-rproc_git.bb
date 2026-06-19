@@ -15,7 +15,7 @@ SRC_URI = "git://git@github.com/KorribanMaster/openamp_pcie.git;protocol=ssh;bra
 SRCREV = "e020a51297d0b254ab8cd9970fa555767bb1b7fc"
 
 # Kbuild (obj-m) lives in the driver/ subdir of the repo.
-S = "${WORKDIR}/git/driver"
+S = "${UNPACKDIR}/git/driver"
 
 # The driver Makefile selects the kernel tree via `KDIR ?= /lib/modules/$(uname
 # -r)/build` (a host build), whereas module.bbclass exports KERNEL_SRC/

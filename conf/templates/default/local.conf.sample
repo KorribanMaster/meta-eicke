@@ -1,7 +1,7 @@
 #
-# This is the meta-eicke build configuration (TEMPLATECONF). It is poky's
-# default local.conf with the additions needed for the GRUB-EFI + A/B WIC +
-# SWUpdate image. See the marked block at the bottom.
+# This is the meta-eicke build configuration (TEMPLATECONF). It is
+# openembedded-core's default local.conf with the additions needed for the
+# GRUB-EFI + A/B WIC + SWUpdate image. See the marked block at the bottom.
 #
 
 #
@@ -20,7 +20,8 @@ MACHINE ??= "qemux86-64"
 #
 # Distro selection
 #
-DISTRO ?= "poky"
+# Our custom systemd-based distro (meta-eicke/conf/distro/eicke.conf).
+DISTRO ?= "eicke"
 
 # Package management
 PACKAGE_CLASSES ?= "package_rpm"
@@ -75,7 +76,7 @@ ROOTFS_B_LABEL = "rootfs_b"
 # with the upstream hash-equivalence server lets unchanged recipes resolve to
 # the same signatures the Yocto autobuilder used, so they download instead of
 # rebuild. (BB_HASHSERVE = "auto" and BB_SIGNATURE_HANDLER = "OEEquivHash" are
-# already poky defaults on scarthgap.)
+# already openembedded-core defaults.)
 BB_HASHSERVE_UPSTREAM = "wss://hashserv.yoctoproject.org/ws"
 SSTATE_MIRRORS ?= "file://.* http://sstate.yoctoproject.org/all/PATH;downloadfilename=PATH"
 

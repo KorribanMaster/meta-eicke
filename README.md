@@ -1,22 +1,28 @@
 # meta-eicke
 
-A small Yocto layer (poky **scarthgap / 5.0 LTS**) that builds a bootable
-**x86-64** image with a **GRUB-EFI** bootloader, an **A/B (dual-copy) WIC disk
-image**, and **SWUpdate** for atomic OTA-style updates. The whole build runs
-inside a **Docker container** (`crops/poky`), so it works on hosts Yocto does
-not officially support (e.g. Arch Linux) — you only need Docker + git + `repo`.
+A small Yocto layer (**wrynose / 6.0 LTS**) that builds a bootable **x86-64**
+image with a custom systemd-based **`eicke` distro**, a **GRUB-EFI** bootloader,
+an **A/B (dual-copy) WIC disk image**, and **SWUpdate** for atomic OTA-style
+updates. The whole build runs inside a **Docker container** (`crops/poky`), so
+it works on hosts Yocto does not officially support (e.g. Arch Linux) — you only
+need Docker + git + `repo`.
 
 It is assembled by the [`eicke-manifest`](https://github.com/KorribanMaster/eicke-manifest)
-`repo` manifest, which pulls in poky, meta-openembedded and meta-swupdate.
+`repo` manifest. As of 6.0 the Yocto Project no longer ships the combined poky
+repo for new releases, so the manifest pulls in the individual upstream layers —
+**bitbake**, **openembedded-core**, **meta-yocto** (for `meta-yocto-bsp`),
+**meta-openembedded** and **meta-swupdate** — and this layer provides the custom
+`eicke` distro (`conf/distro/eicke.conf`) instead of the poky reference distro.
 
 ## What you get
 
+- A custom **systemd**-based `eicke` distro (no poky reference distro).
 - **GRUB-EFI** boot with an A/B slot layout: `esp` + `rootfs_a` + `rootfs_b` + `data`.
 - **Per-slot kernel** — the kernel is loaded from the active slot, so a rootfs
   update updates the kernel too.
 - **SWUpdate** `.swu` bundles that install to the standby slot, flip the GRUB
   environment, and roll back automatically if the new slot fails to confirm.
-- A **boot-confirm** service that accepts a slot once userspace is healthy.
+- A **boot-confirm** systemd service that accepts a slot once userspace is healthy.
 
 ## Get the sources (repo)
 
@@ -29,8 +35,9 @@ repo init -u ssh://git@github.com/KorribanMaster/eicke-manifest -b main -m defau
 repo sync
 ```
 
-This populates the workspace with `poky/`, `meta-openembedded/`,
-`meta-swupdate/`, `meta-eicke/` and a `setup-environment` helper.
+This populates the workspace with `bitbake/`, `openembedded-core/`,
+`meta-yocto/`, `meta-openembedded/`, `meta-swupdate/`, `meta-eicke/` and a
+`setup-environment` helper.
 
 ## Build
 

@@ -18,7 +18,7 @@ SRC_URI = "file://zynq_rtu.elf"
 
 do_install() {
     install -d ${D}${nonarch_base_libdir}/firmware
-    install -m 0644 ${WORKDIR}/zynq_rtu.elf ${D}${nonarch_base_libdir}/firmware/zynq_rtu.elf
+    install -m 0644 ${UNPACKDIR}/zynq_rtu.elf ${D}${nonarch_base_libdir}/firmware/zynq_rtu.elf
 }
 
 FILES:${PN} = "${nonarch_base_libdir}/firmware/zynq_rtu.elf"

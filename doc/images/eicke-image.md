@@ -16,7 +16,7 @@ update stack.
 - `swupdate` and `swupdate-www` — the update client and its local web UI.
 - `grub-editenv`, `e2fsprogs`, `util-linux-blkid`, `libgcc` — runtime tooling
   used during updates.
-- `eicke-bootconfirm` — sysvinit service that confirms a healthy boot
+- `eicke-bootconfirm` — systemd service that confirms a healthy boot
   (clears the SWUpdate trial state so an accepted slot persists).
 - The kernel (`kernel-image`) installed into the rootfs, so each slot carries
   its own kernel.

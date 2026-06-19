@@ -1,6 +1,6 @@
 # qemux86-64
 
-Emulated 64-bit x86 machine (poky default) for booting and testing the image
+Emulated 64-bit x86 machine (the openembedded-core default) for booting and testing the image
 without hardware. It boots the A/B `.wic` through UEFI (OVMF) + GRUB, exactly
 like the real target.
 

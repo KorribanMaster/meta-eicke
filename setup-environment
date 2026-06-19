@@ -1,8 +1,10 @@
-# Source this from the workspace root (where poky/ and meta-eicke/ live):
+# Source this from the workspace root (where openembedded-core/ and meta-eicke/
+# live):
 #
 #     . ./setup-environment [build-dir]
 #
-# It points TEMPLATECONF at meta-eicke's build templates and then runs poky's
-# oe-init-build-env, creating (and cd-ing into) the build directory.
+# It points TEMPLATECONF at meta-eicke's build templates and then runs
+# openembedded-core's oe-init-build-env (which finds bitbake at ../bitbake),
+# creating (and cd-ing into) the build directory.
 export TEMPLATECONF="${PWD}/meta-eicke/conf/templates/default"
-source poky/oe-init-build-env "${1:-build}"
+source openembedded-core/oe-init-build-env "${1:-build}"

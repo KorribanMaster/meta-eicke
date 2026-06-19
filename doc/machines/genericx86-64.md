@@ -1,7 +1,8 @@
 # genericx86-64
 
-Real 64-bit x86 PC hardware (the generic BSP shipped in poky's
-`meta-yocto-bsp`). Use this to run the image on a physical machine.
+Real 64-bit x86 PC hardware (the generic BSP shipped in `meta-yocto-bsp`,
+checked out via the `meta-yocto` repo). Use this to run the image on a physical
+machine.
 
 ## Build
 

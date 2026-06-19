@@ -1,0 +1,14 @@
+[Unit]
+Description=Confirm a healthy boot for the SWUpdate A/B scheme
+Documentation=man:grub-editenv(1)
+# The grubenv lives on the ESP, which the image mounts at /boot.
+RequiresMountsFor=/boot
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/eicke-bootconfirm
+
+[Install]
+WantedBy=multi-user.target

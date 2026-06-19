@@ -11,6 +11,6 @@ inherit deploy allarch
 
 do_deploy() {
     install -d ${DEPLOYDIR}
-    install -m 0644 ${WORKDIR}/grubenv ${DEPLOYDIR}/grubenv
+    install -m 0644 ${UNPACKDIR}/grubenv ${DEPLOYDIR}/grubenv
 }
 addtask deploy before do_build after do_install

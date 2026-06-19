@@ -9,7 +9,7 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/GPL-2.0-only;md5=801f80980d171d
 # Same repo as the driver; feat/simulation carries the run-ptest entry point.
 SRC_URI = "git://git@github.com/KorribanMaster/openamp_pcie.git;protocol=ssh;branch=feat/simulation"
 SRCREV = "3e2699d8e0e3ed87217a7918d1e618f219a2fd35"
-S = "${WORKDIR}/git"
+S = "${UNPACKDIR}/git"
 
 inherit ptest
 
