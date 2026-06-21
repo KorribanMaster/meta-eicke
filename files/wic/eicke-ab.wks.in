@@ -1,9 +1,12 @@
 # A/B (dual-copy) disk layout for GRUB-EFI on x86-64, used with SWUpdate.
 #
-#   p1  esp       vfat   EFI System Partition: GRUB + grub.cfg + grubenv
-#   p2  rootfs_a  ext4   active rootfs (populated at build time)
-#   p3  rootfs_b  ext4   standby rootfs (empty; written by SWUpdate)
-#   p4  data      ext4   persistent data / SWUpdate state
+#   p1  esp       vfat    64 MiB  EFI System Partition: GRUB + grub.cfg + grubenv
+#   p2  rootfs_a  ext4     1 GiB  active rootfs (populated at build time)
+#   p3  rootfs_b  ext4     1 GiB  standby rootfs (empty; written by SWUpdate)
+#   p4  data      ext4     4 GiB  persistent data / SWUpdate state
+#
+# rootfs_a and rootfs_b are equal fixed-size slots so an A/B raw-image update
+# fits either slot regardless of which is active.
 #
 # GRUB reads `rootdev` from grubenv to choose between rootfs_a and rootfs_b;
 # the kernel lives in /boot inside the selected rootfs. Each `part` directive
@@ -16,6 +19,6 @@ bootloader --ptable gpt --timeout=3 --configfile=grub.cfg
 # data partition consistently. Letting wic add its own (PARTUUID-based) entries
 # would only patch slot A and duplicate the mount there.
 part /boot --source bootimg-efi --sourceparams="loader=grub-efi" --label esp --part-name esp --fstype=vfat --active --align 1024 --size 64 --use-uuid --no-fstab-update
-part / --source rootfs --label ${ROOTFS_A_LABEL} --part-name rootfs_a --fstype=ext4 --align 1024 --use-uuid
-part --label ${ROOTFS_B_LABEL} --part-name rootfs_b --fstype=ext4 --align 1024 --size 512 --use-uuid
-part /data --label data --part-name data --fstype=ext4 --align 1024 --size 256 --use-uuid --no-fstab-update
+part / --source rootfs --label ${ROOTFS_A_LABEL} --part-name rootfs_a --fstype=ext4 --align 1024 --fixed-size 1024 --use-uuid
+part --label ${ROOTFS_B_LABEL} --part-name rootfs_b --fstype=ext4 --align 1024 --fixed-size 1024 --use-uuid
+part /data --label data --part-name data --fstype=ext4 --align 1024 --fixed-size 4096 --use-uuid --no-fstab-update
