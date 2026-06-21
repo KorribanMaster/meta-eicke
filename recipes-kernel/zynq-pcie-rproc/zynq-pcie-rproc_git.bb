@@ -30,7 +30,10 @@ EXTRA_OEMAKE:append = " KDIR=${STAGING_KERNEL_DIR}"
 # kernel-module-* packages to RDEPEND on. If you switch those symbols to =m in
 # the fragment, add the matching kernel-module-* RDEPENDS here.
 
-# Auto-load on boot (PCIe probe binds the endpoint).
-KERNEL_MODULE_AUTOLOAD += "zynq_pcie_rproc"
+# NOT auto-loaded at boot. The driver's probe waits for the endpoint FSBL/DDR/PL
+# to come up and times out (~10s, -110) if the Zynq PL isn't loaded yet — which
+# at boot it usually isn't — stalling systemd-modules-load on the critical path.
+# Load it on demand once the PL is up:  modprobe zynq_pcie_rproc
+# (To restore boot autoload, re-add: KERNEL_MODULE_AUTOLOAD += "zynq_pcie_rproc")
 
 RPROVIDES:${PN} += "kernel-module-zynq-pcie-rproc"
