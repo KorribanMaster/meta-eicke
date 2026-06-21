@@ -21,6 +21,9 @@ CONFIG_HAVE_DOT_CONFIG=y
 # CONFIG_CURL is not set
 # CONFIG_CURL_SSL is not set
 # CONFIG_SYSTEMD is not set
+# (meta-swupdate ships a Type=notify unit; rather than build swupdate against
+# libsystemd for sd_notify, we override the unit to Type=simple via a drop-in in
+# the swupdate bbappend, so systemd doesn't time out waiting for readiness.)
 CONFIG_DEFAULT_CONFIG_FILE="/etc/swupdate.cfg"
 CONFIG_SCRIPTS=y
 # No hardware-revision gating: this is a generic x86 image with no
