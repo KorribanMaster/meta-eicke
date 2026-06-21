@@ -3,9 +3,12 @@
 You can now run 'bitbake <target>'.
 
 Common targets are:
-    eicke-image           - the bootable GRUB-EFI / A-B / SWUpdate disk image (.wic)
-    eicke-update-image    - the SWUpdate update artifact (.swu)
-    core-image-minimal    - stock poky minimal image
+    eicke-image            - the bootable GRUB-EFI / A-B / SWUpdate disk image (.wic)
+    eicke-update-image     - the SWUpdate update artifact (.swu)
+    eicke-image-dev        - eicke-image + on-target debug tools (gdb, lspci/lsusb,
+                             minicom, systemd-analyze, strace, tcpdump, ...)
+    eicke-update-image-dev - SWUpdate .swu for eicke-image-dev
+    core-image-minimal     - stock minimal image
 
 Boot the emulated (qemux86-64) image via EFI/GRUB with:
     runqemu eicke-image wic ovmf nographic

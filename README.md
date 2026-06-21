@@ -52,13 +52,24 @@ bitbake eicke-image                # -> tmp/deploy/images/<machine>/eicke-image-
 bitbake eicke-update-image         # -> the *.swu update bundle
 ```
 
+For development/bring-up there's a debug variant that adds on-target tools
+(`gdb`, `lspci`/`lsusb`, `minicom`, `systemd-analyze`, `strace`, `tcpdump`, full
+`util-linux`, …) on top of the same A/B base — see
+[`doc/images/eicke-image-dev.md`](doc/images/eicke-image-dev.md):
+
+```sh
+bitbake eicke-image-dev            # debug image (.wic)
+bitbake eicke-update-image-dev     # its *.swu update bundle
+```
+
 Default machine is `qemux86-64`. Switch to real hardware by setting
 `MACHINE = "genericx86-64"` in `build/conf/local.conf`.
 
 ## Documentation
 
 - Images — [`doc/images/`](doc/images/): [eicke-image](doc/images/eicke-image.md),
-  [eicke-update-image](doc/images/eicke-update-image.md)
+  [eicke-update-image](doc/images/eicke-update-image.md),
+  [eicke-image-dev](doc/images/eicke-image-dev.md) (debug tools)
 - Machines — [`doc/machines/`](doc/machines/):
   [qemux86-64](doc/machines/qemux86-64.md) (incl. how to run & interact),
   [genericx86-64](doc/machines/genericx86-64.md)
