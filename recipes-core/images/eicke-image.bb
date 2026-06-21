@@ -16,6 +16,9 @@ IMAGE_INSTALL:append = " \
     e2fsprogs-mke2fs \
     util-linux-blkid \
     libgcc \
+    kernel-modules \
+    linux-firmware-rtl8168 \
+    eicke-network \
     eicke-bootconfirm \
     zynq-pcie-rproc \
     zynq-rtu-firmware \

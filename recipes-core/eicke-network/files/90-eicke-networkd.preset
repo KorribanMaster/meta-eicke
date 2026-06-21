@@ -1,0 +1,4 @@
+# Enable systemd-networkd + resolved by default so eicke images DHCP on boot.
+enable systemd-networkd.service
+enable systemd-networkd.socket
+enable systemd-resolved.service
