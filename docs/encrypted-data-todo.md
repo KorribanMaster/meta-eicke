@@ -1,11 +1,61 @@
 # TPM-sealed /data encryption — design + remaining work (WIP)
 
-**Status:** design complete and the initramfs is implemented; the encrypt/unlock
-+ `/etc`-overlay logic is written and the TPM/LUKS approach is verified-sound,
-but the build-system mechanism that makes the *signed* kernel actually execute
-the initramfs is not yet working. The production image currently ships the
-verified Secure Boot + read-only-rootfs + `/etc`-overlay (preinit) configuration;
-encryption is not yet active.
+**Status:** the entire boot/initramfs pipeline is implemented and QEMU-verified
+to work end-to-end EXCEPT the final TPM seal. The signed separate initrd loads
+and is SELoader-verified, the kernel unpacks it, `/init` runs, finds the rootfs
+and data partitions, and reaches the TPM provisioning step. The ONLY failure is
+`cryptfs-tpm2`'s `TPM2_Create` of the sealed passphrase object on the swtpm
+emulator (`RC 0x18b` = FMT1 handle-1 `TPM_RC_KEY` — it hardcodes an RSA primary
+key that swtpm rejects as a parent). This is very likely a swtpm-emulator quirk
+(cryptfs-tpm2 is a Wind River production tool used with real hardware TPMs), but
+it blocks the qemu verification. The production image therefore currently ships
+the verified Secure Boot + read-only-rootfs + `/etc`-overlay (preinit) config;
+encryption is wired but de-activated pending this fix.
+
+## What is verified working (this is the bulk of it)
+
+- Separate signed initrd: `kernel-initramfs` installs the eicke-initramfs cpio at
+  `/boot/initrd` (+ real-file deref) and meta-efi-secure-boot signs it
+  (`/boot/initrd.p7b`). grub's `initrd` line loads it; under SELoader/mok2verify
+  grub uses the legacy initrd path (`grub_is_secured()` → boot_params), and the
+  kernel unpacks it ("Freeing initrd memory: 23892K").
+- `/init` runs as PID 1: resolves `root=PARTLABEL=rootfs_a` and the data
+  partition, sets `TSS2_TCTI=device`, and reaches TPM provisioning. OVMF exposes
+  the TPM2 ACPI table; cryptfs-tpm2 talks to the TPM (reads/votes PCR banks).
+
+## The one blocker
+
+`cryptfs-tpm2 -q seal passphrase -P sha256` →
+`[ERROR] Unable to create the passphrase object (0x18b)` (create.c:524). 0x18b =
+TPM_RC_KEY on the parent handle of `TPM2_Create`. cryptfs-tpm2's
+`cryptfs_tpm2_create_primary_key()` hardcodes `set_public(TPM2_ALG_RSA, …)` with
+no option to change it.
+
+## Remaining work (next pass) — pick one
+
+1. **Patch cryptfs-tpm2** to use an ECC primary key (or fix the RSA storage-key
+   attributes) so swtpm accepts it as a parent — a small bbappend patch to
+   `src/lib/create.c`. Then re-run the qemu+swtpm two-boot test.
+2. **Switch to `systemd-cryptenroll`** (the standard, robust TPM2-LUKS tool):
+   in `/init`, `luksFormat` `/data` with a random key, `systemd-cryptenroll
+   --tpm2-device=auto --tpm2-pcrs=7`, then `cryptsetup luksOpen` via the TPM2
+   token. Needs libcryptsetup TPM2 support + the token handler in the initramfs.
+3. Or verify on **real hardware** (the failure is likely swtpm-specific).
+
+To re-activate the initramfs encryption path in eicke-image-prod.bb (the recipes
+`eicke-initramfs.bb` and `eicke-initramfs-init.bb` + `/init` are committed; the
+prod wiring below was reverted to keep prod bootable and must be re-applied):
+
+- drop `overlayfs-etc` from `inherit` and from `IMAGE_FEATURES` (+ remove the
+  `OVERLAYFS_ETC_*` vars and the `eicke_prod_drop_data_fstab` /data-line strip);
+- `IMAGE_INSTALL:append = " kernel-initramfs"`; create `/data` as a mountpoint in
+  the ro rootfs; add a postprocess to deref `/boot/initrd` + `/boot/initrd.p7b`
+  from symlinks to real files (grub's SELoader initrd path needs real files);
+- in local.conf: `INITRAMFS_IMAGE = "eicke-initramfs"`, `INITRAMFS_IMAGE_BUNDLE = "0"`;
+- in boot-menu.inc add `initrd /boot/initrd` after the `linux` line.
+
+(`/init` currently force-logs to `/dev/ttyS0` for diagnostics — make that
+conditional/remove for production.)
 
 ## Agreed design (confirmed with the user)
 

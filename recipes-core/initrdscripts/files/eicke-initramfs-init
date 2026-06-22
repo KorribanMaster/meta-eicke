@@ -34,6 +34,10 @@ mount -t sysfs    sysfs    /sys
 mount -t devtmpfs dev      /dev 2>/dev/null
 mount -t tmpfs    tmpfs    /run
 
+# Send all initramfs output to the serial console (the kernel cmdline makes tty0
+# the primary /dev/console, which a headless qemu discards).
+exec >/dev/ttyS0 2>&1
+
 # Use the kernel's in-built TPM resource manager (/dev/tpmrm0).
 export TSS2_TCTI=device
 
@@ -61,7 +65,7 @@ msg "data   = $DATADEV"
 # --- unlock / provision encrypted /data --------------------------------------
 if cryptsetup isLuks "$DATADEV"; then
     msg "unsealing /data passphrase from TPM (PCR7)..."
-    if ! cryptfs-tpm2 -q unseal passphrase -P auto -o "$TMP_PP" 2>/dev/null; then
+    if ! cryptfs-tpm2 -q unseal passphrase -P sha256 -o "$TMP_PP" 2>/dev/null; then
         fail "TPM unseal failed (PCR7 mismatch?) — /data stays locked"
     fi
     cryptsetup luksOpen --key-file "$TMP_PP" "$DATADEV" "$LUKS_NAME" \
@@ -69,9 +73,9 @@ if cryptsetup isLuks "$DATADEV"; then
     rm -f "$TMP_PP"
 else
     msg "first boot: provisioning encrypted /data (seal passphrase to TPM PCR7)"
-    cryptfs-tpm2 -q seal passphrase -P auto \
+    cryptfs-tpm2 -q seal passphrase -P sha256 \
         || fail "TPM seal failed (no TPM, or PCR policy error)"
-    cryptfs-tpm2 -q unseal passphrase -P auto -o "$TMP_PP" 2>/dev/null \
+    cryptfs-tpm2 -q unseal passphrase -P sha256 -o "$TMP_PP" 2>/dev/null \
         || fail "TPM unseal (post-seal) failed"
     msg "luksFormat $DATADEV ..."
     cryptsetup -q luksFormat --type luks2 "$DATADEV" --key-file "$TMP_PP" \
