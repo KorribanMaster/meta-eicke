@@ -43,13 +43,23 @@ and `--flags not-need-init,startup-clear`) isn't presenting that / isn't fully
 started in this OVMF+tpm-crb setup. Real hardware TPMs support AES-128-CFB, so
 this is an **emulator/firmware-TPM-init limitation, not the product code**.
 
+Already tried for the swtpm seal, none resolved the AES-128-CFB / TPM_RC_INITIALIZE:
+swtpm `--profile name=default-v1`, `swtpm_setup` provisioning (default-v1, sha256
+PCR bank), `--flags not-need-init,startup-clear`, and OVMF built with TPM2
+(`MACHINE_FEATURES += "tpm2"` → `-D TPM_ENABLE=TRUE`). The kernel still logs
+`tpm0: TPM error (256)` (RC_INITIALIZE) at probe, i.e. the emulated TPM is not
+being TPM2_Startup'd in this OVMF+tpm-crb path, so systemd's AES-128-CFB session
+check fails.
+
 ## Remaining work (next pass) — pick one
 
-1. **Fix the swtpm/OVMF TPM init** so the qemu seal completes: e.g. `swtpm_setup`
-   to fully provision the state, an OVMF build with full TPM2 measured-boot
-   (TPM2_Startup), or `tpm-tis` vs `tpm-crb`. Then re-run the two-boot test.
-2. **Verify on real hardware** — the systemd-cryptenroll + systemd-tpm2-token
-   path is standard and works with a hardware TPM that advertises AES-128-CFB.
+1. **Verify on real hardware** (recommended) — the systemd-cryptenroll +
+   systemd-tpm2-token path is standard and works with a hardware TPM that
+   advertises AES-128-CFB and is started by real firmware.
+2. **Fix the qemu TPM init**: try `tpm-tis` instead of `tpm-crb`; or confirm OVMF
+   actually runs Tcg2Dxe (TPM2_Startup) — the qemu-generated ACPI TPM2 table is
+   present regardless, so it's not proof; possibly needs an OVMF Tcg2 config or a
+   userspace `tpm2_startup -c` very early in `/init` (before systemd-cryptenroll).
 3. Earlier alternative (parked): patch cryptfs-tpm2 to an ECC primary.
 
 To re-activate the initramfs encryption path in eicke-image-prod.bb (the recipes
