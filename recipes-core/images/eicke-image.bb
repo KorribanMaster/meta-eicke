@@ -31,8 +31,11 @@ IMAGE_INSTALL:append = " \
 # create it) via the grubenv recipe + IMAGE_BOOT_FILES.
 # NOTE: the bootimg-efi wic plugin reads IMAGE_EFI_BOOT_FILES (not the
 # bootimg-partition IMAGE_BOOT_FILES) for files placed on the ESP.
-IMAGE_EFI_BOOT_FILES:append = " grubenv;EFI/BOOT/grubenv"
-do_image_wic[depends] += "grubenv:do_deploy"
+# Under efi-secure-boot the grub-efi recipe creates+ships grubenv on the ESP
+# itself (and would conflict with this standalone seed), so only use the
+# grubenv recipe when secure boot is off (the bootimg-efi flow).
+IMAGE_EFI_BOOT_FILES:append = "${@bb.utils.contains('DISTRO_FEATURES', 'efi-secure-boot', '', ' grubenv;EFI/BOOT/grubenv', d)}"
+do_image_wic[depends] += "${@bb.utils.contains('DISTRO_FEATURES', 'efi-secure-boot', '', 'grubenv:do_deploy', d)}"
 
 # grub.cfg is pulled in at wic runtime via the wks 'bootloader --configfile',
 # so bitbake doesn't track it automatically; register it as a task input so

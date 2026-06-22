@@ -11,6 +11,18 @@ require recipes-core/images/eicke-image-prod-creds.inc
 
 inherit extrausers overlayfs-etc
 
+# ---- UEFI Secure Boot -------------------------------------------------------
+# Production-specific wic whose ESP is populated from the rootfs's /boot/efi
+# (signed grub + configs), instead of the bootimg-efi plugin used by base/dev.
+WKS_FILE = "eicke-ab-prod.wks.in"
+
+# packagegroup-efi-secure-boot pulls the whole signed chain into /boot/efi:
+# shim (installed as the firmware default bootx64.efi), SELoader, grub-efi
+# (signed grubx64.efi + grub.cfg/boot-menu.inc + .sig + modules), efitools
+# (LockDown.efi for key enrollment), efibootmgr and mokutil. It also removes
+# the plain (unsigned) grub package.
+IMAGE_INSTALL:append = " packagegroup-efi-secure-boot"
+
 # Minimal kernel modules: drop the catch-all (the base installs all modules for
 # bring-up) and keep only what this product needs — Realtek NIC (OTA), Intel GPU
 # (HDMI console), and the product remoteproc driver (kept from the base). AHCI /

@@ -1,0 +1,21 @@
+# Production A/B disk layout for UEFI Secure Boot (meta-efi-secure-boot).
+#
+#   p1  esp       vfat    64 MiB  EFI System Partition (signed grub + configs)
+#   p2  rootfs_a  ext4     1 GiB  active rootfs (populated at build time)
+#   p3  rootfs_b  ext4     1 GiB  standby rootfs (empty; written by SWUpdate)
+#   p4  data      ext4     4 GiB  persistent data / SWUpdate state
+#
+# Unlike eicke-ab.wks.in (which builds the ESP with the bootimg-efi plugin),
+# the ESP here is populated from the rootfs's /boot/efi, which the grub-efi
+# recipe fills with the SIGNED grubx64.efi, signed grub.cfg/boot-menu.inc (+ .sig),
+# grubenv, the grub modules, and LockDown.efi (efitools). A rootfs postprocess in
+# eicke-image-prod.bb also copies the signed grubx64.efi to the firmware's
+# removable-media default name EFI/BOOT/bootx64.efi so OVMF/UEFI loads it.
+#
+# Each `part` directive MUST be on a single line (wic parses with shlex).
+
+bootloader --ptable gpt --timeout=3
+part /boot --source rootfs --rootfs-dir=${IMAGE_ROOTFS}/boot/efi --label esp --part-name esp --fstype=vfat --active --align 1024 --size 64 --use-uuid --no-fstab-update
+part / --source rootfs --label ${ROOTFS_A_LABEL} --part-name rootfs_a --fstype=ext4 --align 1024 --fixed-size 1024 --use-uuid
+part --label ${ROOTFS_B_LABEL} --part-name rootfs_b --fstype=ext4 --align 1024 --fixed-size 1024 --use-uuid
+part /data --label data --part-name data --fstype=ext4 --align 1024 --fixed-size 4096 --use-uuid --no-fstab-update
