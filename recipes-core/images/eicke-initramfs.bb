@@ -9,13 +9,15 @@ PACKAGE_INSTALL = " \
     util-linux-blkid \
     util-linux-findfs \
     cryptsetup \
-    cryptfs-tpm2 \
+    systemd-crypt \
     e2fsprogs-mke2fs \
     libtss2-tcti-device \
     base-files \
     base-passwd \
     ${VIRTUAL-RUNTIME_base-utils} \
 "
+# systemd-crypt brings systemd-cryptenroll + the libcryptsetup systemd-tpm2 token
+# plugin (under ${libdir}/cryptsetup) used by `cryptsetup open --token-only`.
 
 # A custom /init (from eicke-initramfs-init) is PID 1 — don't pull the
 # initramfs-framework's /init.

@@ -62,30 +62,31 @@ DATADEV="$(findfs PARTLABEL=data 2>/dev/null)"
 [ -b "$DATADEV" ] || fail "cannot find data partition (PARTLABEL=data)"
 msg "data   = $DATADEV"
 
-# --- unlock / provision encrypted /data --------------------------------------
+# --- unlock / provision encrypted /data (LUKS2 + systemd TPM2 token, PCR7) ----
+# systemd-cryptenroll adds a TPM2 keyslot+token (ECC SRK) bound to PCR7;
+# `cryptsetup open --token-only` then unlocks via the systemd-tpm2 token plugin,
+# which only succeeds when PCR7 matches the value at enroll time (i.e. only after
+# a successful Secure Boot with the enrolled keys).
+TPM2DEV="${EICKE_TPM2_DEV:-auto}"
 if cryptsetup isLuks "$DATADEV"; then
-    msg "unsealing /data passphrase from TPM (PCR7)..."
-    if ! cryptfs-tpm2 -q unseal passphrase -P sha256 -o "$TMP_PP" 2>/dev/null; then
-        fail "TPM unseal failed (PCR7 mismatch?) — /data stays locked"
-    fi
-    cryptsetup luksOpen --key-file "$TMP_PP" "$DATADEV" "$LUKS_NAME" \
-        || fail "luksOpen of $DATADEV failed"
-    rm -f "$TMP_PP"
+    msg "unlocking encrypted /data via TPM2 token (PCR7)..."
+    cryptsetup open --token-only "$DATADEV" "$LUKS_NAME" \
+        || fail "TPM2 unlock failed (PCR7 mismatch / tamper?) — /data stays locked"
 else
-    msg "first boot: provisioning encrypted /data (seal passphrase to TPM PCR7)"
-    cryptfs-tpm2 -q seal passphrase -P sha256 \
-        || fail "TPM seal failed (no TPM, or PCR policy error)"
-    cryptfs-tpm2 -q unseal passphrase -P sha256 -o "$TMP_PP" 2>/dev/null \
-        || fail "TPM unseal (post-seal) failed"
-    msg "luksFormat $DATADEV ..."
-    cryptsetup -q luksFormat --type luks2 "$DATADEV" --key-file "$TMP_PP" \
+    msg "first boot: provisioning encrypted /data, enrolling TPM2 (PCR7)"
+    KEYF=/run/eicke-initkey
+    dd if=/dev/urandom of="$KEYF" bs=32 count=1 2>/dev/null
+    cryptsetup -q luksFormat --type luks2 "$DATADEV" "$KEYF" \
         || fail "luksFormat failed"
-    cryptsetup luksOpen --key-file "$TMP_PP" "$DATADEV" "$LUKS_NAME" \
-        || fail "luksOpen (post-format) failed"
-    rm -f "$TMP_PP"
+    systemd-cryptenroll --unlock-key-file="$KEYF" \
+        --tpm2-device="$TPM2DEV" --tpm2-pcrs=7 "$DATADEV" \
+        || fail "systemd-cryptenroll TPM2 (PCR7) failed"
+    rm -f "$KEYF"
+    cryptsetup open --token-only "$DATADEV" "$LUKS_NAME" \
+        || fail "post-enroll TPM2 unlock failed"
     mkfs.ext4 -q -L eicke_data "/dev/mapper/$LUKS_NAME" \
         || fail "mkfs.ext4 on decrypted /data failed"
-    msg "encrypted /data provisioned"
+    msg "encrypted /data provisioned (TPM2/PCR7)"
 fi
 
 # --- mount rootfs (ro) + /etc overlay on decrypted /data ---------------------

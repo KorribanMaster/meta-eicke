@@ -23,24 +23,34 @@ encryption is wired but de-activated pending this fix.
   partition, sets `TSS2_TCTI=device`, and reaches TPM provisioning. OVMF exposes
   the TPM2 ACPI table; cryptfs-tpm2 talks to the TPM (reads/votes PCR banks).
 
-## The one blocker
+## The blocker (now: swtpm emulator, not the product code)
 
-`cryptfs-tpm2 -q seal passphrase -P sha256` →
-`[ERROR] Unable to create the passphrase object (0x18b)` (create.c:524). 0x18b =
-TPM_RC_KEY on the parent handle of `TPM2_Create`. cryptfs-tpm2's
-`cryptfs_tpm2_create_primary_key()` hardcodes `set_public(TPM2_ALG_RSA, …)` with
-no option to change it.
+The implementation was switched to the standard **systemd-cryptenroll** path
+(committed): `/init` does `luksFormat` `/data` with a random key, then
+`systemd-cryptenroll --unlock-key-file=… --tpm2-device=auto --tpm2-pcrs=7`, then
+`cryptsetup open --token-only` (systemd-tpm2 token plugin). The initramfs carries
+`systemd-cryptenroll` + `libcryptsetup-token-systemd-tpm2.so` + cryptsetup +
+libtss2 (via the `systemd-crypt` package; systemd built with PACKAGECONFIG
+`cryptsetup cryptsetup-plugins tpm2`). systemd's TPM2 SRK is ECC, which the
+earlier cryptfs-tpm2 RSA-primary `0x18b` failure does not affect.
+
+`systemd-cryptenroll` then fails on **swtpm** with:
+`TPM device not usable as it does not support the required functionality
+(AES-128-CFB missing?)`, and the kernel logs `tpm0: A TPM error (256)` =
+`TPM_RC_INITIALIZE` at probe. systemd ≥256 mandates an AES-128-CFB **encrypted
+bus session**; the swtpm emulator's TPM (even with `--profile name=default-v1`
+and `--flags not-need-init,startup-clear`) isn't presenting that / isn't fully
+started in this OVMF+tpm-crb setup. Real hardware TPMs support AES-128-CFB, so
+this is an **emulator/firmware-TPM-init limitation, not the product code**.
 
 ## Remaining work (next pass) — pick one
 
-1. **Patch cryptfs-tpm2** to use an ECC primary key (or fix the RSA storage-key
-   attributes) so swtpm accepts it as a parent — a small bbappend patch to
-   `src/lib/create.c`. Then re-run the qemu+swtpm two-boot test.
-2. **Switch to `systemd-cryptenroll`** (the standard, robust TPM2-LUKS tool):
-   in `/init`, `luksFormat` `/data` with a random key, `systemd-cryptenroll
-   --tpm2-device=auto --tpm2-pcrs=7`, then `cryptsetup luksOpen` via the TPM2
-   token. Needs libcryptsetup TPM2 support + the token handler in the initramfs.
-3. Or verify on **real hardware** (the failure is likely swtpm-specific).
+1. **Fix the swtpm/OVMF TPM init** so the qemu seal completes: e.g. `swtpm_setup`
+   to fully provision the state, an OVMF build with full TPM2 measured-boot
+   (TPM2_Startup), or `tpm-tis` vs `tpm-crb`. Then re-run the two-boot test.
+2. **Verify on real hardware** — the systemd-cryptenroll + systemd-tpm2-token
+   path is standard and works with a hardware TPM that advertises AES-128-CFB.
+3. Earlier alternative (parked): patch cryptfs-tpm2 to an ECC primary.
 
 To re-activate the initramfs encryption path in eicke-image-prod.bb (the recipes
 `eicke-initramfs.bb` and `eicke-initramfs-init.bb` + `/init` are committed; the
