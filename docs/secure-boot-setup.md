@@ -23,7 +23,7 @@ Add, before `meta-eicke`:
     DISTRO_FEATURES:append = " efi-secure-boot"
     UEFI_SELOADER = "1"        # shim + SELoader chain (provides grub's verifier)
     GRUB_SIGN_VERIFY = "0"     # mutually exclusive with UEFI_SELOADER=1
-    SIGNING_MODEL = "sample"   # layer's public sample keys; use "user" for ours
+    SIGNING_MODEL = "user"     # our own keys (see below); "sample" = layer demo keys
 
 Notes:
 - `efi-secure-boot` is **distro-wide**: it patches grub to enforce signed
@@ -32,6 +32,28 @@ Notes:
   base/dev still use the bootimg-efi wks and would need migrating to boot under
   this distro feature.
 - A no-shim / no-SELoader config fails at `shim_lock ... protocols not found`.
+
+## Our own keys (SIGNING_MODEL = "user")
+
+Generate a key store once (outside git), then point the build at it:
+
+    meta-secure-core/meta-signing-key/scripts/create-user-key-store.sh \
+        -d ~/yocto/keys/sb-user -rp <pw> -bgp <pw> -bp <pw> -ip <pw>
+
+This produces `uefi_sb_keys/` (PK/KEK/DB), `mok_sb_keys/` (shim_cert,
+vendor_cert), plus GPG/IMA/modsign keys (unused here). The build container
+mounts `~/yocto/keys` at `/keys`, so in local.conf:
+
+    MASTER_KEYS_DIR = "/keys/sb-user"
+    UEFI_SB_KEYS_DIR = "${MASTER_KEYS_DIR}/uefi_sb_keys"
+    MOK_SB_KEYS_DIR  = "${MASTER_KEYS_DIR}/mok_sb_keys"
+    BOOT_KEYS_DIR    = "${MASTER_KEYS_DIR}/boot_keys"
+    BOOT_GPG_NAME = "BOOT-SecureCore"
+    BOOT_GPG_PASSPHRASE = "<pw>"
+
+With `SIGNING_MODEL=user` the layer auto-blacklists the sample keys in DBX, so an
+image signed with our keys is rejected by a sample-key varstore and vice-versa
+(verified). Enroll our `uefi_sb_keys/*.crt` into the OVMF varstore for qemu.
 
 ## What this layer's recipes do here
 
