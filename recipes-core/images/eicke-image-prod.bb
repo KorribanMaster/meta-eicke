@@ -23,6 +23,13 @@ WKS_FILE = "eicke-ab-prod.wks.in"
 # the plain (unsigned) grub package.
 IMAGE_INSTALL:append = " packagegroup-efi-secure-boot"
 
+# ---- Encrypted /data (LUKS2, TPM2-sealed) -----------------------------------
+# cryptsetup for LUKS, tpm2-tools/cryptfs-tpm2 for sealing the key to PCR7.
+# The actual unlock + /etc overlay happens in the initramfs before switch_root
+# (replacing the overlayfs-etc preinit); these are also handy on the running
+# system for first-boot provisioning of the encrypted /data.
+IMAGE_INSTALL:append = " cryptsetup tpm2-tools cryptfs-tpm2"
+
 # Minimal kernel modules: drop the catch-all (the base installs all modules for
 # bring-up) and keep only what this product needs — Realtek NIC (OTA), Intel GPU
 # (HDMI console), and the product remoteproc driver (kept from the base). AHCI /
