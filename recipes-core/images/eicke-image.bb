@@ -11,6 +11,7 @@ IMAGE_FEATURES += "ssh-server-openssh"
 IMAGE_INSTALL:append = " \
     swupdate \
     swupdate-www \
+    swupdate-public-key \
     grub-editenv \
     kernel-image \
     e2fsprogs-mke2fs \

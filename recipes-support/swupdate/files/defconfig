@@ -73,7 +73,16 @@ CONFIG_SSL_IMPL_OPENSSL=y
 # CONFIG_DOWNLOAD is not set
 # Verify the sha256 supplied in sw-description (we embed real hashes at build).
 CONFIG_HASH_VERIFY=y
-# CONFIG_SIGNED_IMAGES is not set
+# Require a valid RSA-PSS signature over sw-description before installing. This
+# makes swupdate refuse any unsigned/tampered .swu; the public key is passed at
+# runtime (-k /etc/swupdate/public.pem). Note this is global to the swupdate
+# binary, so EVERY eicke image now verifies and EVERY .swu must be signed.
+CONFIG_SIGNED_IMAGES=y
+CONFIG_SIGALG_RSAPSS=y
+# CONFIG_SIGALG_CMS is not set
+# CONFIG_SIGALG_RAWRSA is not set
+# CONFIG_SIGALG_GPG is not set
+# CONFIG_SIGALG_ED25519 is not set
 # CONFIG_ENCRYPTED_IMAGES is not set
 # CONFIG_SURICATTA is not set
 CONFIG_WEBSERVER=y

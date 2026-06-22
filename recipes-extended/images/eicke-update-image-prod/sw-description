@@ -1,0 +1,62 @@
+/*
+ * SWUpdate description for the Eicke production A/B (dual-copy) update.
+ *
+ * Identical A/B logic to the base bundle, but ships the hardened
+ * eicke-image-prod rootfs. The bundle is signed (RSA-PSS over this
+ * sw-description); the target's swupdate verifies it against
+ * /etc/swupdate/public.pem (configured in /etc/swupdate.cfg) and refuses any
+ * unsigned or tampered .swu.
+ *
+ * Two modes select which slot to write:
+ *   - stable.copy1 : run while booted on slot A -> writes rootfs_b, boots B next
+ *   - stable.copy2 : run while booted on slot B -> writes rootfs_a, boots A next
+ *
+ * Apply (from the running target), e.g. when currently on slot A:
+ *     swupdate -i eicke-update-image-prod-<machine>.swu -e stable,copy1
+ *
+ * @@IMAGE_MACHINE_SUFFIX@@ is expanded by the swupdate bbclass to e.g.
+ * "-qemux86-64". The leading "@" on the sha256 line is the class's sha256
+ * placeholder, replaced with the artifact's real hash at build time.
+ */
+software =
+{
+    version = "1.0";
+    description = "Eicke production A/B rootfs update";
+
+    stable:
+    {
+        copy1:
+        {
+            images: (
+                {
+                    filename = "eicke-image-prod@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
+                    device   = "/dev/disk/by-partlabel/rootfs_b";
+                    type     = "raw";
+                    sha256   = "@eicke-image-prod@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
+                }
+            );
+            bootenv: (
+                { name = "rootdev";   value = "rootfs_b"; },
+                { name = "ustate";    value = "1"; },
+                { name = "bootcount"; value = "0"; }
+            );
+        };
+
+        copy2:
+        {
+            images: (
+                {
+                    filename = "eicke-image-prod@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
+                    device   = "/dev/disk/by-partlabel/rootfs_a";
+                    type     = "raw";
+                    sha256   = "@eicke-image-prod@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
+                }
+            );
+            bootenv: (
+                { name = "rootdev";   value = "rootfs_a"; },
+                { name = "ustate";    value = "1"; },
+                { name = "bootcount"; value = "0"; }
+            );
+        };
+    };
+}

@@ -1,0 +1,17 @@
+# Template for production credentials. Copy to eicke-image-prod-creds.inc and
+# fill in real SHA-512 crypt password hashes (the real file is gitignored so
+# secrets never land in git). Generate a hash with:
+#
+#     openssl passwd -6 'your-password'
+#
+# IMPORTANT: escape every '$' in the hash as '\$' below — extrausers evals the
+# usermod/useradd command through two shell layers (eval + flock sh -c), so an
+# unescaped '$6$salt$hash' gets shell-expanded and mangled. e.g.:
+#     usermod -p '\$6\$salt\$hash' root;
+#
+# eicke-image-prod.bb `require`s eicke-image-prod-creds.inc, so the build fails
+# loudly if it's missing.
+EXTRA_USERS_PARAMS = "\
+    usermod -p '<root-sha512-hash>' root; \
+    useradd -p '<eicke-sha512-hash>' -m -s /bin/sh eicke; \
+"

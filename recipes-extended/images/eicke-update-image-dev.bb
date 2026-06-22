@@ -6,6 +6,9 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 
 inherit swupdate
 
+# Sign the bundle (RSA-PSS over sw-description) like the other variants.
+require swupdate-signing.inc
+
 # Ship the dev rootfs inside the .swu (raw ext4 written to the standby slot).
 # Deployed as "eicke-image-dev-<machine>.rootfs.ext4"; the fstype flag must
 # include the ".rootfs" infix so the class finds it in DEPLOY_DIR_IMAGE.

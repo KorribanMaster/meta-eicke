@@ -6,6 +6,10 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 
 inherit swupdate
 
+# Sign the bundle (RSA-PSS over sw-description). Shared with -dev/-prod so every
+# .swu is signed with the one key; swupdate on the target verifies it.
+require swupdate-signing.inc
+
 # The rootfs that gets shipped inside the .swu, and the format SWUpdate writes
 # to the standby partition (raw ext4 image). The deployed rootfs is named
 # "<image>-<machine>.rootfs.ext4" (the ".rootfs" infix has been the IMAGE_NAME

@@ -1,0 +1,3 @@
+
+# production credentials (real hashes) — never commit
+recipes-core/images/eicke-image-prod-creds.inc
