@@ -10,9 +10,12 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/GPL-2.0-only;md5=801f80980d171d
 inherit module
 
 # Private repo — fetched over ssh (uses the builder's key). For an https mirror
-# switch to protocol=https. Pinned to a SRCREV on main; bump SRCREV to advance.
+# switch to protocol=https. Pinned to a SRCREV; bump SRCREV to advance.
+# Pinned to main after the merge of fix/rproc-threaded-irq (threaded-IRQ
+# remoteproc fix). The driver tree at this commit is what was verified on the
+# bench (built from the fix tip 6f755f6 before the merge).
 SRC_URI = "git://git@github.com/KorribanMaster/openamp_pcie.git;protocol=ssh;branch=main"
-SRCREV = "e020a51297d0b254ab8cd9970fa555767bb1b7fc"
+SRCREV = "2564fc8c623995a1b92f6991b355b68b315e8fee"
 
 # Kbuild (obj-m) lives in the driver/ subdir of the repo. wrynose unpacks git
 # SRC_URIs to ${UNPACKDIR}/${BP} (BB_GIT_DEFAULT_DESTSUFFIX = "${BP}"), not /git.
