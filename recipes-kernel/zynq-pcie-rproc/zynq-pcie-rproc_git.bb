@@ -11,11 +11,13 @@ inherit module
 
 # Private repo — fetched over ssh (uses the builder's key). For an https mirror
 # switch to protocol=https. Pinned to a SRCREV; bump SRCREV to advance.
-# Pinned to main after the merge of fix/rproc-threaded-irq (threaded-IRQ
-# remoteproc fix). The driver tree at this commit is what was verified on the
-# bench (built from the fix tip 6f755f6 before the merge).
-SRC_URI = "git://git@github.com/KorribanMaster/openamp_pcie.git;protocol=ssh;branch=main"
-SRCREV = "2564fc8c623995a1b92f6991b355b68b315e8fee"
+# Pinned to the cooperative stop/reload feature (OCM parker) on branch
+# feat/rproc-stop-reload. This .stop sets CTRL_HALT + rings the doorbell and
+# polls STATUS_PARKED, letting the host reload a different RTU firmware without
+# a power-cycle. Verified on the bench (start->stop parks in OCM->start reload,
+# echo OK, PCIe link stayed up). Re-pin to main once the branch is merged.
+SRC_URI = "git://git@github.com/KorribanMaster/openamp_pcie.git;protocol=ssh;branch=feat/rproc-stop-reload"
+SRCREV = "4f3fbc9eb526c615f506abd8c84dcf0cdfa47c87"
 
 # Kbuild (obj-m) lives in the driver/ subdir of the repo. wrynose unpacks git
 # SRC_URIs to ${UNPACKDIR}/${BP} (BB_GIT_DEFAULT_DESTSUFFIX = "${BP}"), not /git.
