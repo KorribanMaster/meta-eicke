@@ -22,6 +22,7 @@ IMAGE_INSTALL:append = " \
     procps htop lsof util-linux e2fsprogs file \
     vim less \
     python3-pytest python3-pip \
+    ptest-runner zynq-pcie-rproc-ptest zynq-pcie-rproc-kicktool \
 "
 
 # Debug symbols are intentionally NOT bundled (keeps the image curated). For

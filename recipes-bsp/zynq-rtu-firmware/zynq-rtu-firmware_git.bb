@@ -31,7 +31,7 @@ SRC_URI = "git://git@github.com/KorribanMaster/openamp_pcie.git;protocol=ssh;bra
            git://github.com/OpenAMP/libmetal.git;protocol=https;nobranch=1;destsuffix=${BP}-deps/libmetal;name=metal \
            git://github.com/OpenAMP/open-amp.git;protocol=https;nobranch=1;destsuffix=${BP}-deps/open-amp;name=openamp \
 "
-SRCREV_main = "0a4961b17ef86b30646626f0895eb4cf3bc957ea"
+SRCREV_main = "27374d3e0fb28596fe462e0d7445ede42ccc05ee"
 SRCREV_esw = "145cea8fcf98268c8b163f732c181f008e887e53"
 SRCREV_metal = "80ab6b0d506a0d8eb4f2b87926682ababbb804b3"
 SRCREV_openamp = "5bcc7c0401cace5e3d6719a06a0d1f92e30251aa"

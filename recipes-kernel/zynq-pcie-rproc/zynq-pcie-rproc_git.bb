@@ -7,18 +7,18 @@ kernel (see the linux-yocto zynq-rproc.cfg fragment)."
 LICENSE = "GPL-2.0-only"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/GPL-2.0-only;md5=801f80980d171dd6425610833a22dbe6"
 
-inherit module
+inherit module ptest
 
 # Private repo — fetched over ssh (uses the builder's key). For an https mirror
 # switch to protocol=https. Pinned to a SRCREV on main; bump SRCREV to advance.
-# Pinned to main after the merge of feat/rtu-fault-handling (RTU fault detection,
-# logging and auto-recovery): decoded STATUS logging + rtu_status sysfs, watchdog
-# fault/hang detection, crash-loop-guarded auto-recovery via the OCM parker, and
-# a firmware trace0 log. Builds on the earlier stop/reload (OCM parker) and
-# threaded-IRQ work. Verified on the bench (fault -> decoded dmesg + auto-recovery
-# + echo OK; trace0 shows the firmware log; crash-loop guard trips and re-arms).
+# Pinned to main after the merge of test/driver-pytest: a pytest suite covering
+# all driver functions (remoteproc lifecycle, rpmsg echo, Kick-IP registers,
+# sysfs, fault/auto-recovery) shipped as a Yocto ptest, on top of the RTU
+# fault-handling work (decoded STATUS logging + rtu_status sysfs, watchdog
+# fault/hang detection, crash-loop-guarded auto-recovery via the OCM parker,
+# firmware trace0). Verified on the bench.
 SRC_URI = "git://git@github.com/KorribanMaster/openamp_pcie.git;protocol=ssh;branch=main"
-SRCREV = "0a4961b17ef86b30646626f0895eb4cf3bc957ea"
+SRCREV = "27374d3e0fb28596fe462e0d7445ede42ccc05ee"
 
 # Kbuild (obj-m) lives in the driver/ subdir of the repo. wrynose unpacks git
 # SRC_URIs to ${UNPACKDIR}/${BP} (BB_GIT_DEFAULT_DESTSUFFIX = "${BP}"), not /git.
@@ -43,3 +43,42 @@ EXTRA_OEMAKE:append = " KDIR=${STAGING_KERNEL_DIR}"
 # (To restore boot autoload, re-add: KERNEL_MODULE_AUTOLOAD += "zynq_pcie_rproc")
 
 RPROVIDES:${PN} += "kernel-module-zynq-pcie-rproc"
+
+# ---------------------------------------------------------------------------
+# ptest: the repo's driver/test/ pytest suite (run-ptest entry point), run on
+# the host the Zynq board is plugged into. Enable the ptest package for just
+# this recipe (PTEST_ENABLED=1) rather than adding 'ptest' to DISTRO_FEATURES
+# distro-wide (which would rebuild many recipes' ptests). With no RTU endpoint
+# the tests report SKIP (never FAIL), so the suite is safe on any host.
+PTEST_ENABLED = "1"
+
+# The suite is pure Python (stdlib + pytest); the firmware is what it boots.
+RDEPENDS:${PN}-ptest += "${PN} zynq-rtu-firmware ptest-runner \
+    python3-core python3-pytest python3-fcntl python3-mmap"
+
+do_install_ptest() {
+    install -d ${D}${PTEST_PATH}
+    # Ship the whole test dir (conftest.py, rpmsg_lib.py, test_*.py, run-ptest,
+    # the dependency-free run_tests.py fallback, README). kicktool is the C
+    # equivalent and is packaged separately (see below) as /usr/bin/kicktool.
+    cp -r ${S}/test/. ${D}${PTEST_PATH}/
+    chmod 0755 ${D}${PTEST_PATH}/run-ptest
+}
+
+# ---------------------------------------------------------------------------
+# kicktool: a no-Python C helper (BAR0 Kick-IP register dump + rpmsg echo /
+# fault-injection) for minimal rootfs debugging. Built for the target with the
+# OE toolchain (libc only) and shipped as its own package so it can be added to
+# the dev image without pulling it into the lean base/prod images.
+PACKAGES =+ "${PN}-kicktool"
+FILES:${PN}-kicktool = "${bindir}/kicktool"
+RDEPENDS:${PN}-kicktool += "${PN}"
+
+do_compile:append() {
+    ${CC} ${CFLAGS} ${LDFLAGS} -o ${B}/kicktool ${S}/test/kicktool.c
+}
+
+do_install:append() {
+    install -d ${D}${bindir}
+    install -m 0755 ${B}/kicktool ${D}${bindir}/kicktool
+}
