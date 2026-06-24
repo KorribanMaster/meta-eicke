@@ -10,14 +10,14 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/GPL-2.0-only;md5=801f80980d171d
 inherit module
 
 # Private repo — fetched over ssh (uses the builder's key). For an https mirror
-# switch to protocol=https. Pinned to a SRCREV; bump SRCREV to advance.
-# Pinned to the cooperative stop/reload feature (OCM parker) on branch
-# feat/rproc-stop-reload. This .stop sets CTRL_HALT + rings the doorbell and
-# polls STATUS_PARKED, letting the host reload a different RTU firmware without
-# a power-cycle. Verified on the bench (start->stop parks in OCM->start reload,
-# echo OK, PCIe link stayed up). Re-pin to main once the branch is merged.
-SRC_URI = "git://git@github.com/KorribanMaster/openamp_pcie.git;protocol=ssh;branch=feat/rproc-stop-reload"
-SRCREV = "4f3fbc9eb526c615f506abd8c84dcf0cdfa47c87"
+# switch to protocol=https. Pinned to a SRCREV on main; bump SRCREV to advance.
+# Pinned to main after the merge of feat/rproc-stop-reload (cooperative stop +
+# firmware reload via the OCM parker): .stop sets CTRL_HALT + rings the doorbell
+# and polls STATUS_PARKED, so the host can reload a different RTU firmware with
+# no power-cycle. Also includes the threaded-IRQ kick handler. Verified on the
+# bench (start -> stop parks in OCM -> start reload, echo OK, PCIe link stayed up).
+SRC_URI = "git://git@github.com/KorribanMaster/openamp_pcie.git;protocol=ssh;branch=main"
+SRCREV = "7ba872628a877392f5de8674e7c07e6dfc02b36c"
 
 # Kbuild (obj-m) lives in the driver/ subdir of the repo. wrynose unpacks git
 # SRC_URIs to ${UNPACKDIR}/${BP} (BB_GIT_DEFAULT_DESTSUFFIX = "${BP}"), not /git.
