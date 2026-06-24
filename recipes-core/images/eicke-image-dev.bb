@@ -21,6 +21,7 @@ IMAGE_INSTALL:append = " \
     tcpdump ethtool iproute2 iproute2-ss curl \
     procps htop lsof util-linux e2fsprogs file \
     vim less \
+    python3-pytest python3-pip \
 "
 
 # Debug symbols are intentionally NOT bundled (keeps the image curated). For
