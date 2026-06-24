@@ -23,6 +23,8 @@ IMAGE_INSTALL:append = " \
     eicke-bootconfirm \
     zynq-pcie-rproc \
     zynq-rtu-firmware \
+    python3 \
+    python3-modules \
 "
 
 # The ESP holds GRUB + grub.cfg + grubenv and is mounted at /boot so SWUpdate
