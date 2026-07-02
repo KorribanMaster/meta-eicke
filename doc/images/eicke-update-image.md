@@ -18,18 +18,19 @@ A `.swu` is a cpio stream containing, in order:
 
 ## How it updates (dual-copy)
 
-The `sw-description` defines two modes; pick the one for the **standby** slot:
-
-| Mode | Writes to | Sets in grubenv |
-|------|-----------|-----------------|
-| `stable,copy1` | `rootfs_b` (`/dev/disk/by-partlabel/rootfs_b`) | `rootdev=rootfs_b`, `ustate=1` |
-| `stable,copy2` | `rootfs_a` | `rootdev=rootfs_a`, `ustate=1` |
-
-Apply it on the device (run `copy1` while booted on A, `copy2` while on B):
+The `sw-description` embeds a Lua hook (`eicke_set_standby`) that picks the
+**standby** slot automatically at install time: it reads the running slot from
+`/proc/cmdline` (`root=PARTLABEL=rootfs_X`), writes the new rootfs to the *other*
+slot, and sets grubenv (`rootdev=<standby>`, `ustate=1`, `bootcount=0`). Because
+no selection is required, the **same bundle installs both ways**:
 
 ```sh
-swupdate -i eicke-update-image-<machine>.rootfs.swu -e stable,copy1
-reboot
+# CLI, on the device (no -e needed):
+swupdate -i eicke-update-image-<machine>.rootfs.swu && reboot
+
+# Web interface (SWUpdate mongoose server, port 8080):
+curl -F filename=@eicke-update-image-<machine>.rootfs.swu http://<target>:8080/upload
+# then reboot from the web UI or `reboot`
 ```
 
 On reboot GRUB boots the new slot. The `eicke-bootconfirm` service then clears

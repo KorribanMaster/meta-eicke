@@ -7,12 +7,16 @@
  * /etc/swupdate/public.pem (configured in /etc/swupdate.cfg) and refuses any
  * unsigned or tampered .swu.
  *
- * Two modes select which slot to write:
- *   - stable.copy1 : run while booted on slot A -> writes rootfs_b, boots B next
- *   - stable.copy2 : run while booted on slot B -> writes rootfs_a, boots A next
+ * The standby slot is selected AUTOMATICALLY at install time by the embedded
+ * Lua hook (`eicke_set_standby`): it reads the slot the system is running from
+ * (kernel cmdline `root=PARTLABEL=rootfs_X`), writes the rootfs to the OTHER
+ * slot, and points the bootloader (grubenv) at it. No `-e` selection is needed,
+ * so the same bundle installs via the SWUpdate web interface AND the CLI:
  *
- * Apply (from the running target), e.g. when currently on slot A:
- *     swupdate -i eicke-update-image-prod-<machine>.swu -e stable,copy1
+ *     # CLI (from the running target):
+ *     swupdate -i eicke-update-image-prod-<machine>.rootfs.swu
+ *     # Web interface (mongoose, port 8080):
+ *     curl -F filename=@eicke-update-image-prod-<machine>.rootfs.swu http://<target>:8080/upload
  *
  * @@IMAGE_MACHINE_SUFFIX@@ is expanded by the swupdate bbclass to e.g.
  * "-qemux86-64". The leading "@" on the sha256 line is the class's sha256
@@ -23,40 +27,42 @@ software =
     version = "1.0";
     description = "Eicke production A/B rootfs update";
 
-    stable:
-    {
-        copy1:
-        {
-            images: (
-                {
-                    filename = "eicke-image-prod@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
-                    device   = "/dev/disk/by-partlabel/rootfs_b";
-                    type     = "raw";
-                    sha256   = "@eicke-image-prod@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
-                }
-            );
-            bootenv: (
-                { name = "rootdev";   value = "rootfs_b"; },
-                { name = "ustate";    value = "1"; },
-                { name = "bootcount"; value = "0"; }
-            );
-        };
+    /* Picks the standby slot from the running slot and points the bootloader at
+     * it (ustate=1 marks it "to test"; bootcount=0 arms the grub A/B fallback).
+     * Adjacent string literals are concatenated by libconfig. */
+    embedded-script = "function eicke_current_slot()\n"
+        "  local slot = nil\n"
+        "  local f = io.open('/proc/cmdline', 'r')\n"
+        "  if f then\n"
+        "    local c = f:read('*a') or ''\n"
+        "    f:close()\n"
+        "    slot = string.match(c, 'root=PARTLABEL=(rootfs_[ab])')\n"
+        "  end\n"
+        "  if not slot then slot = swupdate.get_bootenv('rootdev') end\n"
+        "  if slot ~= 'rootfs_a' and slot ~= 'rootfs_b' then slot = 'rootfs_a' end\n"
+        "  return slot\n"
+        "end\n"
+        "function eicke_set_standby(image)\n"
+        "  local cur = eicke_current_slot()\n"
+        "  local standby = 'rootfs_b'\n"
+        "  if cur == 'rootfs_b' then standby = 'rootfs_a' end\n"
+        "  image.device = '/dev/disk/by-partlabel/' .. standby\n"
+        "  swupdate.set_bootenv('rootdev', standby)\n"
+        "  swupdate.set_bootenv('ustate', '1')\n"
+        "  swupdate.set_bootenv('bootcount', '0')\n"
+        "  pcall(function() swupdate.info('eicke A/B: running ' .. cur .. ' -> writing standby ' .. standby) end)\n"
+        "  return true, image\n"
+        "end\n";
 
-        copy2:
+    images: (
         {
-            images: (
-                {
-                    filename = "eicke-image-prod@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
-                    device   = "/dev/disk/by-partlabel/rootfs_a";
-                    type     = "raw";
-                    sha256   = "@eicke-image-prod@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
-                }
-            );
-            bootenv: (
-                { name = "rootdev";   value = "rootfs_a"; },
-                { name = "ustate";    value = "1"; },
-                { name = "bootcount"; value = "0"; }
-            );
-        };
-    };
+            filename = "eicke-image-prod@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
+            /* Overridden by the hook to the standby slot; a valid default keeps
+             * the parser happy if the hook is ever skipped. */
+            device   = "/dev/disk/by-partlabel/rootfs_b";
+            type     = "raw";
+            hook     = "eicke_set_standby";
+            sha256   = "@eicke-image-prod@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
+        }
+    );
 }

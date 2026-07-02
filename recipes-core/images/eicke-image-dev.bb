@@ -21,7 +21,7 @@ IMAGE_INSTALL:append = " \
     tcpdump ethtool iproute2 iproute2-ss curl \
     procps htop lsof util-linux e2fsprogs file \
     vim less \
-    python3-pytest python3-pip \
+    python3-pytest python3-mmap python3-pip \
     ptest-runner zynq-pcie-rproc-ptest zynq-pcie-rproc-kicktool \
 "
 
