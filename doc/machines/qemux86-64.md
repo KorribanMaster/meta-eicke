@@ -49,8 +49,8 @@ SWU=tmp/deploy/images/qemux86-64/eicke-update-image-qemux86-64.rootfs.swu
 runqemu eicke-image wic ovmf nographic kvm slirp \
         qemuparams="-drive file=$PWD/$SWU,if=virtio,format=raw"
 
-# in the guest (booted on slot A -> update slot B):
-swupdate -i /dev/vda -e stable,copy1
+# in the guest (booted on slot A -> the hook auto-selects standby slot B):
+swupdate -i /dev/vda
 reboot
 # after reboot: cat /proc/cmdline  ->  root=PARTLABEL=rootfs_b
 ```

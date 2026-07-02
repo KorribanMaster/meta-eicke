@@ -1,7 +1,0 @@
-#!/bin/sh
-# Run the zynq-rproc ptest at boot, capture to the console, then power off.
-# Used by the headless eicke-image-ptest-auto image for unattended test runs.
-echo "=====ZYNQ-AUTOTEST-BEGIN=====" > /dev/console 2>&1
-ptest-runner zynq-rproc-test > /dev/console 2>&1
-echo "=====ZYNQ-AUTOTEST-END=====" > /dev/console 2>&1
-poweroff > /dev/console 2>&1

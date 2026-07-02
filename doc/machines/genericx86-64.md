@@ -38,8 +38,8 @@ and boots slot A.
 
 Same flow as QEMU: copy the matching
 `eicke-update-image-genericx86-64.rootfs.swu` onto the device (USB, scp, or the
-`swupdate-www` web UI on port 8080) and apply it with
-`swupdate -i … -e stable,copy1`. See
+`swupdate-www` web UI on port 8080) and apply it with `swupdate -i …` (or upload
+via the web UI) — the standby slot is chosen automatically, no `-e` needed. See
 [eicke-update-image](../images/eicke-update-image.md).
 
 ## Notes

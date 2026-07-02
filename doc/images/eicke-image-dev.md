@@ -31,8 +31,10 @@ already on (global `EXTRA_IMAGE_FEATURES`), and SSH is from the base.
 - Deeper profiling: `IMAGE_FEATURES += "tools-profile"` (perf, valgrind, powertop, …).
 
 ## Update an A/B device with the dev image
-Same flow as the base, using the dev bundle (from the running target, on slot A):
+Same flow as the base, using the dev bundle (from the running target — the
+embedded hook picks the standby slot automatically, no `-e` needed):
 ```sh
-swupdate -i eicke-update-image-dev-<machine>.rootfs.swu -e stable,copy1
+swupdate -i eicke-update-image-dev-<machine>.rootfs.swu && reboot
+# or via the web UI:  curl -F filename=@…dev-<machine>.rootfs.swu http://<target>:8080/upload
 ```
 See [eicke-update-image](eicke-update-image.md) for the A/B mechanics.
