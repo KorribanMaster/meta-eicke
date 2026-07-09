@@ -98,27 +98,19 @@ conditional/remove for production.)
   cryptsetup, cryptfs-tpm2, util-linux-blkid/findfs, e2fsprogs-mke2fs, libtss2).
   Builds a ~24 MB `cpio.gz` containing `/init` and the crypto tooling.
 
-## The blocker
+## History (superseded blockers)
 
-`INITRAMFS_IMAGE_BUNDLE = "1"` does **not** embed our initramfs into the kernel
-that lands at `/boot/bzImage` under meta-efi-secure-boot's kernel signing — the
-deployed bzImage stays ~14 MB while the initramfs alone is ~24 MB, and a boot
-shows `/init` never runs (`/data` stays plaintext, `/etc` not an overlay).
+Kept for context; both are resolved by the current implementation described at
+the top of this document:
 
-## Remaining work (next pass)
+- `INITRAMFS_IMAGE_BUNDLE = "1"` did **not** embed our initramfs into the
+  signed `/boot/bzImage` (meta-efi-secure-boot signs the plain kernel; `/init`
+  never ran). Resolved by switching to the **separate signed initrd** loaded by
+  grub (`/boot/initrd` + SELoader `.p7b` signature), which is implemented and
+  QEMU-verified.
+- `cryptfs-tpm2`'s `TPM2_Create` failed on swtpm with `RC 0x18b` (`TPM_RC_KEY`;
+  it hardcodes an RSA primary that swtpm rejects). Resolved by switching to the
+  standard `systemd-cryptenroll` + systemd-tpm2 token path (systemd's SRK is
+  ECC), which then surfaced the current swtpm AES-128-CFB blocker above.
 
-Switch to a **separate signed initrd** loaded by grub:
-1. `INITRAMFS_IMAGE_BUNDLE = "0"`; build `eicke-initramfs` as a standalone cpio.gz.
-2. Install the initrd into the prod rootfs `/boot/initrd` (per A/B slot, so grub
-   on the active slot finds it) and **sign it** (SELoader PKCS7 `.p7b`, via
-   `user-key-store` `sel_sign`) so grub's `initrd` command verifies it.
-3. Add `initrd /boot/initrd` to the signed `boot-menu.inc`.
-4. In prod: drop `overlayfs-etc` + its `OVERLAYFS_ETC_*`, switch `/data` to LUKS
-   in `eicke-ab-prod.wks.in` (or leave ext4 and let the initramfs convert on
-   first boot), ensure `/data` mountpoint exists in the ro rootfs.
-5. Verify in qemu + swtpm (host has swtpm 0.10.1; emulate via
-   `-chardev socket … -tpmdev emulator -device tpm-crb`): first boot provisions +
-   seals; reboot unseals (PCR7 match) and `/data` persists; a wrong-PCR / SB-off
-   boot fails the unseal and `/data` stays locked.
-
-See [[secure-boot-meta-secure-core]] for the SB chain this builds on.
+See [secure-boot-setup](secure-boot-setup.md) for the SB chain this builds on.

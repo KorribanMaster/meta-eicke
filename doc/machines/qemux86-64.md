@@ -23,7 +23,7 @@ host networking):
 EICKE_DOCKER_QEMU=1 .repo/manifests/dock.sh
 
 # --- inside the container ---
-. ./setup-environment
+source integration-init-build-env
 runqemu eicke-image wic ovmf nographic kvm slirp
 ```
 
@@ -33,8 +33,8 @@ runqemu eicke-image wic ovmf nographic kvm slirp
 
 ## Interact
 
-- **Login:** at the `qemux86-64 login:` prompt log in as `root` (empty password,
-  `debug-tweaks`).
+- **Login:** at the `qemux86-64 login:` prompt log in as `root` (empty password;
+  the template's `EXTRA_IMAGE_FEATURES` allow empty-password root login).
 - **Which slot am I on?** `cat /proc/cmdline` → `root=PARTLABEL=rootfs_a` (or `_b`).
 - **Boot state:** `grub-editenv /boot/EFI/BOOT/grubenv list`.
 - **Quit QEMU:** `poweroff` inside the guest, or press `Ctrl-a x` to kill it.

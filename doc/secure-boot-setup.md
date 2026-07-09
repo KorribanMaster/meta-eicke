@@ -42,9 +42,9 @@ Generate a key store once (outside git), then point the build at it:
 
 This produces `uefi_sb_keys/` (PK/KEK/DB), `mok_sb_keys/` (shim_cert,
 vendor_cert), plus GPG/IMA/modsign keys (unused here). The build container
-mounts `~/yocto/keys` at `/keys`, so in local.conf:
+mounts `~/yocto/keys` at `/yocto/keys` (see `dock.sh`), so in local.conf:
 
-    MASTER_KEYS_DIR = "/keys/sb-user"
+    MASTER_KEYS_DIR = "/yocto/keys/sb-user"
     UEFI_SB_KEYS_DIR = "${MASTER_KEYS_DIR}/uefi_sb_keys"
     MOK_SB_KEYS_DIR  = "${MASTER_KEYS_DIR}/mok_sb_keys"
     BOOT_KEYS_DIR    = "${MASTER_KEYS_DIR}/boot_keys"

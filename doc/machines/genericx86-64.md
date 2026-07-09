@@ -6,7 +6,7 @@ machine.
 
 ## Build
 
-Set the machine in `build/conf/local.conf`:
+Set the machine in `build-integration/conf/local.conf`:
 
 ```
 MACHINE = "genericx86-64"

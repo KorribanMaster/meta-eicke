@@ -37,7 +37,9 @@ The image fstab mounts the ESP at `/boot` and the data partition at `/data` on
 
 ## Notes
 
-- Built with `EXTRA_IMAGE_FEATURES = "debug-tweaks"` → root has an empty
-  password. Remove for production.
+- Built with `EXTRA_IMAGE_FEATURES = "allow-empty-password empty-root-password
+  allow-root-login"` (template local.conf) → root has an empty password. The
+  [eicke-image-prod](eicke-image-prod.md) variant removes these features and
+  sets real credentials.
 - See [doc/machines/qemux86-64.md](../machines/qemux86-64.md) to boot and the
   [eicke-update-image](eicke-update-image.md) page to update it.

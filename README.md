@@ -11,7 +11,8 @@ It is assembled by the [`eicke-manifest`](https://github.com/KorribanMaster/eick
 `repo` manifest. As of 6.0 the Yocto Project no longer ships the combined poky
 repo for new releases, so the manifest pulls in the individual upstream layers —
 **bitbake**, **openembedded-core**, **meta-yocto** (for `meta-yocto-bsp`),
-**meta-openembedded** and **meta-swupdate** — and this layer provides the custom
+**meta-openembedded**, **meta-swupdate** and **meta-secure-core** (UEFI Secure
+Boot + TPM2, used by the prod image) — and this layer provides the custom
 `eicke` distro (`conf/distro/eicke.conf`) instead of the poky reference distro.
 
 ## What you get
@@ -30,14 +31,18 @@ You need Google's [`repo`](https://gerrit.googlesource.com/git-repo/) tool and
 an SSH key with access to the (private) repos.
 
 ```sh
-mkdir -p ~/eicke && cd ~/eicke
+mkdir -p ~/yocto/workspace && cd ~/yocto/workspace
+mkdir -p ~/yocto/sstate-cache/
+mkdir -p ~/yocto/downloads/
+mkdir -p ~/yocto/keys/
 repo init -u ssh://git@github.com/KorribanMaster/eicke-manifest -b main -m default.xml
 repo sync
 ```
 
-This populates the workspace with `bitbake/`, `openembedded-core/`,
-`meta-yocto/`, `meta-openembedded/`, `meta-swupdate/`, `meta-eicke/` and a
-`setup-environment` helper.
+This populates the workspace with the layers under `sources/` (`bitbake/`,
+`openembedded-core/`, `meta-yocto/`, `meta-openembedded/`, `meta-swupdate/`,
+`meta-secure-core/`, `meta-eicke/`) and links the build helper
+`integration-init-build-env` at the workspace root.
 
 ## Build
 
@@ -47,10 +52,13 @@ The build runs in the container; the host only needs Docker.
 .repo/manifests/dock.sh            # build + enter the build container (cwd bind-mounted)
 
 # --- inside the container ---
-. ./setup-environment              # sets TEMPLATECONF + runs oe-init-build-env
+source integration-init-build-env  # sets TEMPLATECONF + runs oe-init-build-env, cd's into build-integration/
 bitbake eicke-image                # -> tmp/deploy/images/<machine>/eicke-image-*.wic
 bitbake eicke-update-image         # -> the *.swu update bundle
 ```
+
+(Source the script by its bare name as shown — its template detection matches
+on the script name.)
 
 For development/bring-up there's a debug variant that adds on-target tools
 (`gdb`, `lspci`/`lsusb`, `minicom`, `systemd-analyze`, `strace`, `tcpdump`, full
@@ -62,14 +70,28 @@ bitbake eicke-image-dev            # debug image (.wic)
 bitbake eicke-update-image-dev     # its *.swu update bundle
 ```
 
+For production there's a hardened variant (real credentials — auto-generated on
+first init, see the doc —, SSH key auth, UEFI Secure Boot, read-only rootfs) —
+see [`doc/images/eicke-image-prod.md`](doc/images/eicke-image-prod.md):
+
+```sh
+bitbake eicke-image-prod           # hardened image (.wic)
+bitbake eicke-update-image-prod    # its signed *.swu update bundle
+```
+
 Default machine is `qemux86-64`. Switch to real hardware by setting
-`MACHINE = "genericx86-64"` in `build/conf/local.conf`.
+`MACHINE = "genericx86-64"` in `build-integration/conf/local.conf`.
 
 ## Documentation
 
+Start at [`doc/general.md`](doc/general.md) (index). Highlights:
+
 - Images — [`doc/images/`](doc/images/): [eicke-image](doc/images/eicke-image.md),
   [eicke-update-image](doc/images/eicke-update-image.md),
-  [eicke-image-dev](doc/images/eicke-image-dev.md) (debug tools)
+  [eicke-image-dev](doc/images/eicke-image-dev.md) (debug tools),
+  [eicke-image-prod](doc/images/eicke-image-prod.md) (hardened production image)
 - Machines — [`doc/machines/`](doc/machines/):
   [qemux86-64](doc/machines/qemux86-64.md) (incl. how to run & interact),
   [genericx86-64](doc/machines/genericx86-64.md)
+- Security — [Secure Boot setup](doc/secure-boot-setup.md),
+  [TPM-sealed /data encryption](doc/encrypted-data-todo.md) (WIP)
