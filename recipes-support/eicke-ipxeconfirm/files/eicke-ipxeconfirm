@@ -1,0 +1,83 @@
+#!/bin/sh
+# iPXE A/B boot-entry manager + update confirmation (UEFI BootNext scheme).
+#
+#  (a) First boot: create UEFI entries "ipxe-a"/"ipxe-b" pointing at
+#      \EFI\BOOT\ipxe-a.efi / ipxe-b.efi on the ESP and put them at the front
+#      of BootOrder (a first). The firmware's auto-generated fallback entry
+#      (which loaded EFI/BOOT/BOOTX64.EFI on the very first boot) is kept in
+#      the order as a last-resort safety net.
+#  (b) Update confirmation: after swupdate set BootNext to the standby slot
+#      and the firmware booted it, BootCurrent is an ipxe entry that is not
+#      BootOrder[0]; promote it to the front. BootNext is one-shot, so a slot
+#      that never reaches this script is automatically abandoned on the next
+#      reset.
+set -eu
+
+[ -d /sys/firmware/efi ] || exit 0
+
+# On the netboot image systemd runs straight from the initramfs and does not
+# mount efivarfs itself; mount it (and remount rw in case something mounted
+# it read-only -- systemd >= v254 does that). efibootmgr needs it writable.
+grep -q ' /sys/firmware/efi/efivars ' /proc/mounts || \
+    mount -t efivarfs efivarfs /sys/firmware/efi/efivars 2>/dev/null || true
+mount -o remount,rw /sys/firmware/efi/efivars 2>/dev/null || true
+
+# Locate the ESP (filesystem label "esp") -> --disk/--part for efibootmgr.
+espdev=$(blkid -L esp) || { logger -t eicke-ipxeconfirm "no ESP found"; exit 0; }
+espname=$(basename "$espdev")
+part=$(cat /sys/class/block/"$espname"/partition)
+disk=/dev/$(basename "$(readlink -f /sys/class/block/"$espname"/..)")
+
+espuuid=$(blkid -o value -s PARTUUID "$espdev")
+
+ebm_out=$(efibootmgr)
+entry_num() {  # entry_num <label> -> 4-hex-digit entry number, or empty
+    printf '%s\n' "$ebm_out" | sed -n "s/^Boot\([0-9A-F]\{4\}\)\*\{0,1\}[[:space:]]\{1,\}$1[[:space:]].*/\1/p" | head -n1
+}
+
+created=0
+for slot in a b; do
+    # An entry left over from a previous disk points at a stale partition
+    # GUID the firmware can no longer resolve; delete it so it is recreated.
+    n=$(entry_num ipxe-$slot)
+    if [ -n "$n" ] && ! printf '%s\n' "$ebm_out" | grep "^Boot$n" | grep -qi "$espuuid"; then
+        efibootmgr --bootnum "$n" --delete-bootnum >/dev/null
+        logger -t eicke-ipxeconfirm "deleted stale UEFI boot entry ipxe-$slot ($n)"
+        ebm_out=$(efibootmgr)
+    fi
+    if [ -z "$(entry_num ipxe-$slot)" ]; then
+        efibootmgr --create --disk "$disk" --part "$part" \
+                   --label "ipxe-$slot" --loader "\\EFI\\BOOT\\ipxe-$slot.efi" >/dev/null
+        logger -t eicke-ipxeconfirm "created UEFI boot entry ipxe-$slot"
+        created=1
+    fi
+done
+if [ "$created" = 1 ]; then
+    ebm_out=$(efibootmgr)
+fi
+
+a=$(entry_num ipxe-a); b=$(entry_num ipxe-b)
+current=$(printf '%s\n' "$ebm_out" | sed -n 's/^BootCurrent: //p')
+order=$(printf '%s\n' "$ebm_out" | sed -n 's/^BootOrder: //p')
+
+# Desired front of BootOrder: the running ipxe slot first (confirmation), the
+# other one second. On a boot that didn't come from an ipxe entry (very first
+# boot via the firmware fallback path) default to a,b.
+case "$current" in
+    "$a") front="$a,$b" ;;
+    "$b") front="$b,$a" ;;
+    *)    front="$a,$b" ;;
+esac
+
+# Rebuild BootOrder = front + previous order minus the two ipxe entries.
+# (tr/sed instead of paste: the image's busybox has no paste applet.)
+rest=$(printf '%s' "$order" | tr ',' '\n' | grep -v -e "^$a\$" -e "^$b\$" | tr '\n' ',' | sed -e 's/,$//') || rest=""
+new_order="$front${rest:+,$rest}"
+
+if [ "$new_order" != "$order" ]; then
+    efibootmgr --bootorder "$new_order" >/dev/null
+    logger -t eicke-ipxeconfirm "BootOrder: ${order:-<empty>} -> $new_order (BootCurrent=$current)"
+else
+    logger -t eicke-ipxeconfirm "BootOrder already correct ($order)"
+fi
+exit 0

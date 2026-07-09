@@ -69,7 +69,9 @@ Default machine is `qemux86-64`. Switch to real hardware by setting
 
 - Images — [`doc/images/`](doc/images/): [eicke-image](doc/images/eicke-image.md),
   [eicke-update-image](doc/images/eicke-update-image.md),
-  [eicke-image-dev](doc/images/eicke-image-dev.md) (debug tools)
+  [eicke-image-dev](doc/images/eicke-image-dev.md) (debug tools),
+  [eicke-image-netboot](doc/images/eicke-image-netboot.md) (iPXE netboot,
+  qemux86-64 only)
 - Machines — [`doc/machines/`](doc/machines/):
   [qemux86-64](doc/machines/qemux86-64.md) (incl. how to run & interact),
   [genericx86-64](doc/machines/genericx86-64.md)

@@ -1,0 +1,55 @@
+/*
+ * SWUpdate description for the failsafe A/B iPXE bootloader update
+ * (eicke netboot image, UEFI BootNext scheme).
+ *
+ * 1. files/rawfile: the new ipxe.efi is streamed to a STAGING name on the
+ *    ESP (mounted at /boot) -- never directly over a boot slot, so a
+ *    mid-write power cut cannot corrupt a bootable slot.
+ * 2. scripts/shellscript (postinst): ipxe-postinst.sh determines the standby
+ *    slot from efibootmgr BootCurrent, moves the staged file over the standby
+ *    slot's ipxe-{a,b}.efi, and arms the ONE-SHOT `efibootmgr --bootnext`.
+ *
+ * Failsafe: if the new iPXE hangs, the next reset boots BootOrder[0] (the old
+ * slot -- BootNext was consumed). If the binary does not even load, the
+ * firmware falls through BootOrder automatically. eicke-ipxeconfirm promotes
+ * the new slot to BootOrder[0] only after it has booted to userspace.
+ *
+ * Install via CLI or the web interface (mongoose, port 8080), same as the
+ * rootfs bundles:
+ *     swupdate -i eicke-update-image-netboot-<machine>.rootfs.swu
+ *     curl -F filename=@<bundle>.swu http://<target>:8080/upload
+ *
+ * NOTE: deliberately no `bootenv` section -- swupdate's compiled-in GRUB env
+ * backend must stay unused on this image (there is no grubenv on the ESP).
+ */
+software =
+{
+    version = "1.0";
+    description = "Eicke iPXE A/B bootloader update (netboot)";
+
+    /* swupdate is compiled with the GRUB bootenv backend (shared build with
+     * the rootfs A/B images) and would otherwise try to persist its
+     * transaction/state markers in a grubenv that does not exist on this
+     * image -- and report "Installation failed" AFTER a fully successful
+     * install. Trial/rollback state lives in the UEFI BootNext mechanism
+     * instead, so turn the bootloader markers off for this bundle. */
+    bootloader_transaction_marker = false;
+    bootloader_state_marker = false;
+
+    files: (
+        {
+            filename = "ipxe.efi";
+            path = "/boot/EFI/BOOT/ipxe-staged.efi";
+            type = "rawfile";
+            sha256 = "@ipxe.efi";
+        }
+    );
+
+    scripts: (
+        {
+            filename = "ipxe-postinst.sh";
+            type = "shellscript";
+            sha256 = "@ipxe-postinst.sh";
+        }
+    );
+}
