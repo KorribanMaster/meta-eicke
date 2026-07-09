@@ -63,6 +63,11 @@ do_install_ptest() {
     # equivalent and is packaged separately (see below) as /usr/bin/kicktool.
     cp -r ${S}/test/. ${D}${PTEST_PATH}/
     chmod 0755 ${D}${PTEST_PATH}/run-ptest
+    # echo_test.py is a standalone manual helper (parses sys.argv at import), not
+    # a pytest module — but its name matches pytest's *_test.py glob, so pytest
+    # collects it and dies on `int('-v')`, aborting the whole run. Drop it from
+    # the ptest package (only referenced by README; no test imports it).
+    rm -f ${D}${PTEST_PATH}/echo_test.py
 }
 
 # ---------------------------------------------------------------------------
