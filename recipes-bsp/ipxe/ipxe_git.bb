@@ -22,7 +22,9 @@ S = "${UNPACKDIR}/${BP}"
 DEPENDS = "perl-native"
 COMPATIBLE_HOST = "x86_64.*-linux"
 
-inherit deploy
+# user-key-store (meta-signing-key) provides uefi_sb_sign(); inert in non-SB
+# builds (its class-target DEPENDS only add openssl-native there).
+inherit deploy user-key-store
 
 # CROSS is iPXE's toolchain-prefix knob (host utilities use HOST_CC=gcc from
 # iPXE's Makefile; gcc is in bitbake's hosttools). The embedded script is
@@ -48,11 +50,27 @@ do_compile() {
 do_install[noexec] = "1"
 
 # Deployed machine-suffix-free: wic's IMAGE_BOOT_FILES and the
-# eicke-update-image-netboot SWUPDATE_IMAGES lookup both use the plain name.
-do_deploy() {
-    install -m 0644 ${S}/src/bin-x86_64-efi/ipxe.efi ${DEPLOYDIR}/ipxe.efi
+# eicke-update-image-netboot* SWUPDATE_IMAGES lookup both use the plain name.
+# Under efi-secure-boot (EICKE_SECURE_BOOT=1) the deployed ipxe.efi is signed
+# with the UEFI db key so the firmware itself verifies it: iPXE is booted
+# DIRECTLY from the UEFI A/B entries, with no shim/SELoader in between (shim
+# chainloads a fixed next-stage name, incompatible with BootNext pointing at
+# ipxe-a.efi/ipxe-b.efi). Deliberately uefi_sb_sign (db key), NOT sb_sign
+# (which routes to the shim vendor_cert when MOK_SB=1). The unsigned binary is
+# kept under efi-unsigned/ (kernel convention) for negative Secure Boot tests.
+python do_deploy() {
+    import shutil
+    src = d.expand('${S}/src/bin-x86_64-efi/ipxe.efi')
+    deploydir = d.getVar('DEPLOYDIR')
+    if d.getVar('UEFI_SB') == '1':
+        uefi_sb_sign(src, deploydir + '/ipxe.efi', d)
+        os.makedirs(deploydir + '/efi-unsigned', exist_ok=True)
+        shutil.copyfile(src, deploydir + '/efi-unsigned/ipxe.efi')
+    else:
+        shutil.copyfile(src, deploydir + '/ipxe.efi')
 }
 addtask deploy after do_compile before do_build
+do_deploy[prefuncs] += "${@bb.utils.contains('DISTRO_FEATURES', 'efi-secure-boot', 'check_deploy_keys', '', d)}"
 
 # Nothing is packaged; the artifact is consumed from DEPLOY_DIR_IMAGE.
 EXCLUDE_FROM_WORLD = "1"

@@ -79,3 +79,15 @@ image signed with our keys is rejected by a sample-key varstore and vice-versa
 Verified: signed chain boots (guest SecureBoot on); a varstore with a different
 db → firmware `Access Denied -- rejected by Secure Boot`; a tampered kernel →
 grub `failed to verify kernel /boot/bzImage`.
+
+## Second Secure Boot consumer: the netboot-prod stack (no shim)
+
+`eicke-image-netboot-prod` uses a shorter, shim-less chain: `ipxe_git.bb` signs
+the deployed `ipxe.efi` straight into **db** (`uefi_sb_sign`) because the UEFI
+BootNext A/B entries point directly at `ipxe-a.efi`/`ipxe-b.efi` (shim's fixed
+next-stage name doesn't fit that), and `eicke-netboot-prod-uki.bb` builds a
+db-signed UKI (ukify: stub + bzImage + the image's cpio + cmdline, inner kernel
+also signed) that iPXE chains over HTTP and the firmware's LoadImage verifies.
+QEMU verification is scripted in `meta-eicke/scripts/eicke-netboot-prod-sim.sh`
+(same `virt-fw-vars` enrollment flow as above). See
+`doc/images/eicke-image-netboot-prod.md`.

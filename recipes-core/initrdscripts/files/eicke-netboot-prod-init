@@ -1,0 +1,65 @@
+#!/bin/sh
+# eicke-image-netboot-prod /init wrapper (runs as PID 1 before systemd).
+#
+# The netboot-prod rootfs is the initramfs inside the signed UKI and lives in
+# RAM; nothing on it persists. This wrapper gives the system its persistence
+# BEFORE systemd starts (the netboot analogue of eicke-initramfs-init, minus
+# LUKS/TPM and minus switch_root -- the initramfs IS the rootfs):
+#   1. mount pseudo-filesystems
+#   2. find the on-disk data partition (fs LABEL "data", falling back to GPT
+#      PARTLABEL "data"; mkfs.ext4 on first use if the partition is blank)
+#      and mount it at /data  (plain ext4 -- no LUKS/TPM in v1)
+#   3. lay a writable overlay over /etc whose upper/work dirs live on /data,
+#      so sshd host keys, machine-id etc. survive reboots
+#   4. exec /sbin/init (systemd)
+# Every step is best-effort: a netbooted box with a missing/foreign disk must
+# still reach multi-user (then simply fully volatile), mirroring the base
+# image's nofail fstab policy.
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+export PATH
+
+msg() { echo "EICKE-NETBOOT-INIT: $*"; }
+
+mount -t proc     proc     /proc
+mount -t sysfs    sysfs    /sys
+mountpoint -q /dev 2>/dev/null || mount -t devtmpfs dev /dev 2>/dev/null
+mount -t tmpfs    tmpfs    /run
+
+# --- locate /data: formatted (LABEL) first, then bare partition (PARTLABEL) --
+# Block-device probing is asynchronous (virtio-scsi/USB/SATA may register the
+# disk well after /init starts), so poll for up to ~10s before giving up.
+DATADEV=
+tries=0
+while [ $tries -lt 50 ]; do
+    DATADEV="$(findfs LABEL=data 2>/dev/null)"
+    [ -b "$DATADEV" ] && break
+    DATADEV="$(findfs PARTLABEL=data 2>/dev/null)"
+    [ -b "$DATADEV" ] && break
+    tries=$((tries + 1))
+    sleep 0.2
+done
+if [ -b "$DATADEV" ] && [ -z "$(blkid -o value -s TYPE "$DATADEV")" ]; then
+    msg "blank data partition $DATADEV: creating ext4"
+    mkfs.ext4 -q -L data "$DATADEV" || msg "WARNING: mkfs.ext4 failed"
+fi
+
+if [ -b "$DATADEV" ]; then
+    msg "data = $DATADEV"
+    mkdir -p /data
+    if mount -t ext4 "$DATADEV" /data; then
+        UP=/data/overlay-etc/upper
+        WK=/data/overlay-etc/work
+        mkdir -p "$UP" "$WK"
+        mount -t overlay overlay \
+            -o "lowerdir=/etc,upperdir=$UP,workdir=$WK,index=off,xino=off,metacopy=off" \
+            /etc || msg "WARNING: /etc overlay failed, /etc is volatile"
+    else
+        msg "WARNING: mount /data failed, running fully volatile"
+    fi
+else
+    msg "no data partition found, running fully volatile"
+fi
+
+msg "exec /sbin/init"
+exec /sbin/init
