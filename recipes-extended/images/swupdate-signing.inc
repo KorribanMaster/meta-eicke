@@ -7,12 +7,13 @@
 # salt length -2, sha256) per the meta-swupdate swupdate-common class.
 #
 # The private key lives OUTSIDE the layer/git. The host keeps it at ~/yocto/keys
-# and the build container mounts that dir read-only at /keys (see the docker run
-# -v ~/yocto/keys:/keys:ro flag), so the in-build path is /keys/swupdate-priv.pem.
-# Override EICKE_KEYS_DIR in local.conf for a different layout. The matching
-# public key is shipped in the images by swupdate-public-key.bb so the running
-# swupdate can verify (-k /etc/swupdate/public.pem).
+# and the build container mounts that dir at /yocto/keys (see the docker run
+# -v $HOME/yocto/keys/:/yocto/keys flag in dock.sh), so the in-build path is
+# /yocto/keys/swupdate-priv.pem. Override EICKE_KEYS_DIR in local.conf for a
+# different layout. The matching public key is shipped in the images by
+# swupdate-public-key.bb so the running swupdate can verify
+# (-k /etc/swupdate/public.pem).
 SWUPDATE_SIGNING = "RSA-PSS"
 
-EICKE_KEYS_DIR ??= "/keys"
+EICKE_KEYS_DIR ??= "/yocto/keys"
 SWUPDATE_PRIVATE_KEY ?= "${EICKE_KEYS_DIR}/swupdate-priv.pem"

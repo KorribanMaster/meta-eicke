@@ -1,0 +1,25 @@
+# LAYER_CONF_VERSION is increased each time build/conf/bblayers.conf
+# changes incompatibly
+LCONF_VERSION = "7"
+
+BBPATH = "${TOPDIR}"
+BBFILES ?= ""
+
+# /workdir/sources/openembedded-core is the openembedded-core checkout (where oe-init-build-env lives).
+# The other layers are siblings of it in the workspace. We deliberately do NOT
+# include meta-poky (the poky distro); the build uses the custom 'eicke' distro.
+BBLAYERS ?= " \
+  /workdir/sources/openembedded-core/meta \
+  /workdir/sources/openembedded-core/../meta-yocto/meta-yocto-bsp \
+  /workdir/sources/openembedded-core/../meta-openembedded/meta-oe \
+  /workdir/sources/openembedded-core/../meta-openembedded/meta-python \
+  /workdir/sources/openembedded-core/../meta-openembedded/meta-networking \
+  /workdir/sources/openembedded-core/../meta-openembedded/meta-perl \
+  /workdir/sources/openembedded-core/../meta-swupdate \
+  /workdir/sources/meta-secure-core/meta-signing-key \
+  /workdir/sources/meta-secure-core/meta-secure-core-common \
+  /workdir/sources/meta-secure-core/meta-efi-secure-boot \
+  /workdir/sources/meta-secure-core/meta-tpm2 \
+  /workdir/sources/meta-secure-core/meta-encrypted-storage \
+  /workdir/sources/openembedded-core/../meta-eicke \
+  "

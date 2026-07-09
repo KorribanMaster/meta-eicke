@@ -1,0 +1,4 @@
+DL_DIR ?= "/yocto/downloads"
+SSTATE_DIR = "/yocto/sstate-cache"
+BB_HASHSERVE_DB_DIR = "${SSTATE_DIR}"
+

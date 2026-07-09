@@ -1,0 +1,259 @@
+#!/usr/bin/env bash
+#-----------------------------------------------------------------------------
+# Copyright (c) 2019-2023 almedso GmbH
+# SPDX-License-Identifier: MIT
+# !!! THIS SCRIPT NEEDS TO BE SOURCED. !!!
+# !!! if not sourced it writes what it would do. !!!
+#
+#-----------------------------------------------------------------------------
+# Notes to the maintainer of this script.
+#
+# - This script is sym-linked to project root potentially at a different name.
+# - Never return with exit code different from 0 because the shell just
+#   terminates and the terminal session might be gone.
+# - Sourcing a script does not allow to pass on command line arguments.
+#   All varialbilities need to be injected by environment variables
+#
+#-----------------------------------------------------------------------------
+# Global variables
+#
+
+[[ "$DEBUG" == 'true' ]] && set -x  # aka set -o xtrace
+
+#-----------------------------------------------------------------------------
+# Local functions
+
+clean_up ()
+{
+   set +x  # aka set +o xtrace
+   set +o pipefail
+}
+
+usage ()
+{
+   echo -e "\nUsage: source $PROGNAME template_dir
+
+   Establish a new build environment in '$BUILD_DIR':
+   - create local.conf from template
+   - create bblayer.conf from template
+   - optionally create site.conf from existing site.conf.sample in project dir.
+
+
+   Control variables (to be evaluated when sourced)
+
+   BUILD_DIR
+      specifies build directory location; default is 'build'
+
+
+   TEMPLATE_LAYER_ROOT_DIR
+      specifies the Layer where the template is created from
+	  default is 'sources/meta-eicke'
+   TEMPLATE
+      specifies the templates to be applied in case; default 'default'
+
+   if site.conf does not exist it is build.
+   if a site.conf.sample template exists in project root it is used
+   if no template exists site.conf is generated
+      DL_DIR (if not set - \"/yocto/download\" is added to site.conf)
+      SSTATE_DIR (if not set - \"/yocto/sstate-cache\" is added to site.conf)
+
+      Furthermore:
+      PARALLEL_MAKE & BB_NUMBER_THREADS is set according to computing capabilities
+   "
+}
+
+sanity_checks ()
+{
+
+   if [ "$(whoami)" = "root" ]; then
+      echo "ERROR: do not use the BSP as root."
+      echo "       Sourcing the script failed"
+      return 1
+   fi
+   if [ ! -d "$(pwd)/sources/meta-eicke" ]; then
+      echo "ERROR: ./sources/meta-eicke does not exist"
+      echo "       This script should be invoked from yocto project root directory"
+      echo "       Sourcing the script failed"
+      return 1
+   fi
+   if [ ! -d "$(pwd)/sources/openembedded-core" ]; then
+      echo "ERROR: ./sources/openembedded-core does not exist"
+      echo "       This script should be invoked from yocto project root directory"
+      echo "       Sourcing the script failed"
+      return 1
+   fi
+}
+
+# Expected optional parameters:
+# $1 = template - default is not-set
+# $2 = template - default is meta-eicke
+#
+# Result as site effect if template folder exists
+# TEMPLATECONF var set
+# BUILD_DIR variable is set
+set_layer_and_template_vars ()
+{
+	 local TEMPLATE=${1:-"not-set"}
+	 local LAYER=${2:-"meta-eicke"}
+     BUILD_DIR="build"
+	 if [ "${TEMPLATE}" != "not-set" ]; then
+         local LAYER_REL_PATH=""
+         while read LAYER_REL_PATH; do
+        	  TEMPLATECONF="$(pwd)/${LAYER_REL_PATH}/conf/templates/${TEMPLATE}"
+        	  if [ -d ${TEMPLATECONF} ]; then
+	    		  BUILD_DIR="build-${TEMPLATE}"
+                  break
+              fi
+         done <<< "$(find sources -type d -name "${LAYER}")"
+	     if [ ${BUILD_DIR} = "build" ]; then
+			 echo "ERROR: Template \"${TEMPLATE}\" not found in a layer \"${LAYER}\"."
+             echo "       Sourcing the script failed"
+			 unset TEMPLATECONF
+             unset BUILD_DIR
+             return 1
+		 fi
+     fi
+	 printf "\nUse template ${TEMPLATE} from layer ${LAYER}\n\n"
+}
+
+write_site_conf ()
+{
+	# when called currend working directory is already the build directory
+   	if [ -d conf ] && [ ! -f conf/site.conf ]; then
+      local SITECONF=""
+        # write site.conf only if it does not exist
+        # i.e. never ever modify if it exists or the conf directory does not exist
+      if [ -f ../site.conf.sample ]; then
+        SITECONF="../site.conf.sample"
+      fi
+          if [ -f ../site.conf ]; then
+        SITECONF="../site.conf"
+      fi
+        if [ -n ${SITECONF} ]; then
+        printf "\n Update site.conf - from sample in project root\n"
+        SITECONF="${TEMPLATECONF}/site.conf.sample"
+		    cp $SITECONF conf/site.conf
+		    local NCPU=$(grep -c processor /proc/cpuinfo)
+		    echo "BB_NUMBER_THREADS = \"${NCPU}\" " >> conf/site.conf
+		    echo "PARALLEL_MAKE = \"-j ${NCPU}\" " >> conf/site.conf
+   	   	else
+			echo "\n site.conf template not found, no site.conf established\n"
+		fi
+   fi
+}
+
+ensure_prod_creds ()
+{
+   # eicke-image-prod `require`s a gitignored credentials file with the real
+   # password hashes, so a fresh workspace fails to parse until it exists.
+   # Bootstrap it from the sample with random passwords so the first build
+   # works out of the box (see doc/images/eicke-image-prod.md).
+   local IMAGES_DIR="$(pwd)/sources/meta-eicke/recipes-core/images"
+   local SAMPLE="${IMAGES_DIR}/eicke-image-prod-creds.inc.sample"
+   local CREDS="${IMAGES_DIR}/eicke-image-prod-creds.inc"
+
+   [ -f "${CREDS}" ] && return 0
+   if [ ! -f "${SAMPLE}" ]; then
+      echo "WARNING: ${SAMPLE} missing - cannot generate eicke-image-prod credentials"
+      return 0
+   fi
+   if ! command -v openssl > /dev/null 2>&1; then
+      echo "WARNING: openssl not found - cannot generate eicke-image-prod credentials"
+      echo "         eicke-image-prod will not build until you create ${CREDS}"
+      echo "         (see ${SAMPLE})"
+      return 0
+   fi
+
+   local ROOT_PW="$(openssl rand -base64 12)"
+   local EICKE_PW="$(openssl rand -base64 12)"
+   # SHA-512 crypt hashes; every '$' must be escaped as '\$' (see the sample)
+   local ROOT_HASH="$(openssl passwd -6 "${ROOT_PW}")"
+   local EICKE_HASH="$(openssl passwd -6 "${EICKE_PW}")"
+   ROOT_HASH=${ROOT_HASH//$/\\$}
+   EICKE_HASH=${EICKE_HASH//$/\\$}
+
+   local CONTENT="$(< "${SAMPLE}")"
+   CONTENT="# Auto-generated with random passwords - edit or delete to change them."$'\n'"${CONTENT}"
+   CONTENT=${CONTENT//<root-sha512-hash>/${ROOT_HASH}}
+   CONTENT=${CONTENT//<eicke-sha512-hash>/${EICKE_HASH}}
+   printf '%s\n' "${CONTENT}" > "${CREDS}"
+
+   cat <<EOF
+
+==============================================================================
+ Generated sources/meta-eicke/recipes-core/images/eicke-image-prod-creds.inc
+ (gitignored) with random login passwords for the eicke-image-prod image:
+
+     root  : ${ROOT_PW}
+     eicke : ${EICKE_PW}
+
+ Write them down now - they are shown only once; the file stores only the
+ hashes. To choose your own passwords, edit that file as described in
+ eicke-image-prod-creds.inc.sample, or delete it and re-source this script.
+==============================================================================
+
+EOF
+}
+
+init_bitbake ()
+{
+	source sources/openembedded-core/oe-init-build-env ${BUILD_DIR}
+  # now we cd'ed into the ${BUILD_DIR}
+  write_site_conf
+	unset TEMPLATECONF
+	unset BUILD_DIR
+}
+
+main ()
+{
+   set_layer_and_template_vars $1 $2
+   if sanity_checks; then
+      ensure_prod_creds
+      init_bitbake
+   fi
+   clean_up
+}
+
+# execute main
+if [ -n "$BASH_SOURCE" ]; then
+    THIS_SCRIPT=$BASH_SOURCE
+elif [ -n "$ZSH_NAME" ]; then
+    THIS_SCRIPT=$0
+else
+    THIS_SCRIPT="$(pwd)/oe-init-build-env"
+    if [ ! -e "$THIS_SCRIPT" ]; then
+        echo "Error: $THIS_SCRIPT doesn't exist!" >&2
+        echo "Please run this script in oe-init-build-env's directory." >&2
+        exit 1
+    fi
+fi
+# This script exists as various names in project root directory via sym-links
+# to the origin location at scripts/bxl-init-build-env in bxl layer git repo.
+# The links are provided via COPYLINK directive of the respective manifest files
+# in manifest repo.
+#
+# The symlinks are convenient to prevent mistakes in initializing environments
+# and maintain the relation between build directory name and config template name.
+#
+# Match on the basename so `source ./integration-init-build-env` or an absolute
+# path selects the same template as the bare name.
+THIS_SCRIPT=$(basename "${THIS_SCRIPT}")
+case ${THIS_SCRIPT} in
+   integration-init-build-env)
+         main integration meta-eicke
+   ;;
+   release_*_init-build-env)
+         tmp=${THIS_SCRIPT#*_}
+         RELEASE_VERSION=${tmp%_*}
+         main integration meta-eicke
+         # pin the distro version into site.conf to determine the release to build
+         # the script name pattern is fixed by the release manifest file
+         echo "DISTRO_VERSION = \"${RELEASE_VERSION}\"" >> conf/site.conf
+   ;;
+   eicke-init-build-env)
+         main integration meta-eicke
+   ;;
+   *)
+         main $1 $2
+   ;;
+esac
