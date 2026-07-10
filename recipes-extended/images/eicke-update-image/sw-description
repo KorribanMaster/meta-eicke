@@ -58,6 +58,10 @@ software =
             device   = "/dev/disk/by-partlabel/rootfs_b";
             type     = "raw";
             hook     = "eicke_set_standby";
+            /* Stream straight to the target device. Without this swupdate
+             * stages the whole image in /tmp (tmpfs) first, which overflows
+             * small-RAM targets (e.g. the 256 MB qemuarm-uboot guest). */
+            installed-directly = true;
             sha256   = "@eicke-image@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
         }
     );

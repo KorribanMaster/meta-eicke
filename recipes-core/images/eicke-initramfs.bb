@@ -1,6 +1,9 @@
 SUMMARY = "Eicke production initramfs: TPM-unlock LUKS /data, /etc overlay, switch_root"
 LICENSE = "MIT"
 
+# prod (TPM/LUKS) initramfs; x86 machines only.
+COMPATIBLE_MACHINE = "qemux86-64|genericx86-64"
+
 # Minimal early-userspace. dm-crypt, overlayfs, ext4 and the TPM TIS/CRB drivers
 # are built into the kernel (=y), so no kernel modules are needed here.
 PACKAGE_INSTALL = " \

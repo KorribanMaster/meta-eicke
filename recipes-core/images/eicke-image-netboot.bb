@@ -7,6 +7,9 @@ updates iPXE itself, failsafe via UEFI BootNext A/B (see eicke-ipxeconfirm \
 and eicke-update-image-netboot)."
 LICENSE = "MIT"
 
+# iPXE/UEFI netboot is x86-only.
+COMPATIBLE_MACHINE = "qemux86-64|genericx86-64"
+
 require recipes-core/images/core-image-minimal.bb
 
 IMAGE_FEATURES += "ssh-server-openssh"

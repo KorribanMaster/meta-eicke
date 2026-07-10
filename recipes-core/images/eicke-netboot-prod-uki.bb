@@ -11,6 +11,9 @@ computes the initrd name without the .rootfs infix this build uses."
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
+# UKI/UEFI netboot payload is x86-only.
+COMPATIBLE_MACHINE = "qemux86-64|genericx86-64"
+
 # ukify from systemd-boot-native (python3-pefile-native staged explicitly:
 # native RDEPENDS don't reach the recipe sysroot); the x86-64 stub
 # linuxx64.efi.stub from systemd-boot:do_deploy; sbsign from sbsigntool-native

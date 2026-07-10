@@ -10,6 +10,9 @@ LICENSE = "GPL-2.0-or-later"
 LIC_FILES_CHKSUM = "file://COPYING;md5=92be9bced83819c46c5ab272173c4aa7 \
                     file://COPYING.GPLv2;md5=b234ee4d69f5fce4486a80fdaf4a4263"
 
+# x86_64 UEFI application.
+COMPATIBLE_MACHINE = "qemux86-64|genericx86-64"
+
 SRC_URI = "git://github.com/ipxe/ipxe.git;protocol=https;branch=master \
            file://embed.ipxe"
 SRCREV = "433a8f552f007255d3a0fa13aa7963e0281c9981"

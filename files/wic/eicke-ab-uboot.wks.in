@@ -1,0 +1,25 @@
+# A/B (dual-copy) disk layout for U-Boot on qemuarm-uboot, used with SWUpdate.
+#
+#   p1  esp       vfat    64 MiB  boot partition: boot.scr + uboot.env (A/B state)
+#   p2  rootfs_a  ext4     1 GiB  active rootfs (populated at build time)
+#   p3  rootfs_b  ext4     1 GiB  standby rootfs (empty; written by SWUpdate)
+#   p4  data      ext4     4 GiB  persistent data / SWUpdate state
+#
+# Same geometry, labels and part-names as eicke-ab.wks.in (x86/GRUB), so the
+# shared fstab (LABEL=esp -> /boot) and the SWUpdate sw-description Lua work
+# unchanged. p1 keeps the "esp" label even though it is a plain FAT partition.
+#
+# U-Boot reads rootdev/ustate/bootcount from uboot.env (CONFIG_ENV_IS_IN_FAT)
+# and boot.scr mirrors grub.cfg's slot-selection/rollback logic. Both files
+# come from IMAGE_BOOT_FILES via the bootimg-partition plugin (see
+# eicke-ab-u-boot.inc). Each `part` directive MUST be on a single line.
+
+bootloader --ptable gpt
+# --no-fstab-update on esp/data: the rootfs /etc/fstab provides these mounts
+# itself (see eicke-image.bb), so every A/B slot — including images swupdate
+# writes raw to a standby slot — mounts the boot partition at /boot (for
+# uboot.env) and the data partition consistently.
+part /boot --source bootimg-partition --label esp --part-name esp --fstype=vfat --active --align 1024 --size 64 --use-uuid --no-fstab-update
+part / --source rootfs --label ${ROOTFS_A_LABEL} --part-name rootfs_a --fstype=ext4 --align 1024 --fixed-size 1024 --use-uuid
+part --label ${ROOTFS_B_LABEL} --part-name rootfs_b --fstype=ext4 --align 1024 --fixed-size 1024 --use-uuid
+part /data --label data --part-name data --fstype=ext4 --align 1024 --fixed-size 4096 --use-uuid --no-fstab-update

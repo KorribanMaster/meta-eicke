@@ -9,6 +9,7 @@
 #
 # Default to the emulated 64-bit x86 machine (boot with `runqemu`).
 # For real 64-bit x86 hardware, set:  MACHINE = "genericx86-64"
+# For the emulated ARM32 U-Boot variant, set:  MACHINE = "qemuarm-uboot"
 MACHINE ??= "qemux86-64"
 
 #
@@ -58,13 +59,20 @@ CONF_VERSION = "2"
 # meta-eicke: GRUB-EFI + A/B WIC + SWUpdate
 # ---------------------------------------------------------------------------
 
-# Boot via EFI/GRUB
-MACHINE_FEATURES:append = " efi"
-EFI_PROVIDER = "grub-efi"
+# Boot via EFI/GRUB on the x86 machines. qemuarm-uboot boots via U-Boot and
+# configures itself in its machine conf (conf/machine/qemuarm-uboot.conf), so
+# these are machine-scoped: an unconditional `MACHINE_FEATURES:append = " efi"`
+# would leak into every machine.
+MACHINE_FEATURES:append:qemux86-64 = " efi"
+MACHINE_FEATURES:append:genericx86-64 = " efi"
+EFI_PROVIDER:qemux86-64 = "grub-efi"
+EFI_PROVIDER:genericx86-64 = "grub-efi"
 
-# Our custom A/B partition layout. WKS_FILE_DEPENDS pulls in the EFI/grub
-# artefacts the .wks needs.
-WKS_FILE = "eicke-ab.wks.in"
+# Our custom A/B partition layout for the x86/GRUB machines (qemuarm-uboot
+# sets its own WKS_FILE in the machine conf). WKS_FILE_DEPENDS pulls in the
+# EFI/grub artefacts the .wks needs.
+WKS_FILE:qemux86-64 = "eicke-ab.wks.in"
+WKS_FILE:genericx86-64 = "eicke-ab.wks.in"
 
 # Produce a .wic (full disk image) plus an ext4 rootfs that the SWUpdate
 # .swu bundles as the A/B update payload.

@@ -9,6 +9,9 @@ update path -- it is the signed UKI served by the netboot server."
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
+# netboot images are x86-only.
+COMPATIBLE_MACHINE = "qemux86-64|genericx86-64"
+
 inherit swupdate
 require swupdate-signing.inc
 

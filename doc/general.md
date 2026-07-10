@@ -67,4 +67,5 @@ are described as well.
   - [eicke-update-image](./images/eicke-update-image.md)
 - Machines — [`machines/`](./machines/):
   - [qemux86-64](./machines/qemux86-64.md) (incl. how to run & interact),
-  - [genericx86-64](./machines/genericx86-64.md)
+  - [genericx86-64](./machines/genericx86-64.md),
+  - [qemuarm-uboot](./machines/qemuarm-uboot.md) (ARM32 / U-Boot A/B)

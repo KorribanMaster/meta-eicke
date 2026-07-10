@@ -9,6 +9,9 @@ shared with eicke-image-prod (eicke-prod-hardening.inc). Build with \
 EICKE_SECURE_BOOT=1 (see build-netboot-prod.sh)."
 LICENSE = "MIT"
 
+# iPXE/UEFI netboot is x86-only.
+COMPATIBLE_MACHINE = "qemux86-64|genericx86-64"
+
 require recipes-core/images/eicke-image-netboot.bb
 require recipes-core/images/eicke-prod-hardening.inc
 

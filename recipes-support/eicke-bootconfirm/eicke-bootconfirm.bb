@@ -1,7 +1,8 @@
 SUMMARY = "Confirm a healthy boot for the SWUpdate A/B scheme"
 DESCRIPTION = "systemd oneshot service that clears the swupdate trial state \
-(ustate/bootcount) in the GRUB environment once userspace is up, closing the \
-A/B rollback loop so an accepted slot persists across reboots."
+(ustate/bootcount) in the bootloader environment (GRUB or U-Boot) once \
+userspace is up, closing the A/B rollback loop so an accepted slot persists \
+across reboots."
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
@@ -10,7 +11,9 @@ SRC_URI = " \
     file://eicke-bootconfirm.service \
 "
 
-RDEPENDS:${PN} = "grub-editenv"
+# No RDEPENDS on an env tool: the script autodetects grub-editenv vs
+# fw_printenv at runtime, and the image's eicke-ab-*.inc installs the right
+# one (grub-editenv resp. libubootenv-bin). Keeps this package machine-agnostic.
 
 inherit systemd
 

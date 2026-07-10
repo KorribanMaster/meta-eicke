@@ -4,6 +4,9 @@ LICENSE = "MIT"
 # checksum info. Reference the common MIT license.
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
+# prod image is x86-only.
+COMPATIBLE_MACHINE = "qemux86-64|genericx86-64"
+
 inherit swupdate
 
 # Sign the bundle (RSA-PSS over sw-description) like the other variants.

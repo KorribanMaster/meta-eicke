@@ -22,8 +22,12 @@ IMAGE_INSTALL:append = " \
     procps htop lsof util-linux e2fsprogs file \
     vim less \
     python3-pytest python3-mmap python3-pip \
-    ptest-runner zynq-pcie-rproc-ptest zynq-pcie-rproc-kicktool \
+    ptest-runner \
 "
+
+# The Zynq-RTU-over-PCIe test harness only exists on the x86 machines (the
+# base image installs the driver there; see eicke-image.bb).
+IMAGE_INSTALL:append:x86-64 = " zynq-pcie-rproc-ptest zynq-pcie-rproc-kicktool"
 
 # Debug symbols are intentionally NOT bundled (keeps the image curated). For
 # source-level gdb either add  IMAGE_FEATURES += "dbg-pkgs"  (large), or use the

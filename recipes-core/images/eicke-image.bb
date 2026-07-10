@@ -1,48 +1,41 @@
-SUMMARY = "Basic Eicke image (core-image-minimal based) with GRUB-EFI A/B + SWUpdate"
+SUMMARY = "Basic Eicke image (core-image-minimal based) with A/B boot + SWUpdate"
 LICENSE = "MIT"
 
 require recipes-core/images/core-image-minimal.bb
 
 IMAGE_FEATURES += "ssh-server-openssh"
 
-# SWUpdate + the tooling its GRUB handler needs at runtime, the kernel inside
-# the rootfs (so an A/B rootfs update also updates the kernel), and basic
-# filesystem/partition utilities used during updates.
+# SWUpdate, the kernel inside the rootfs (so an A/B rootfs update also updates
+# the kernel), and basic filesystem/partition utilities used during updates.
+# The bootloader-specific pieces live in the eicke-ab-*.inc required below.
 IMAGE_INSTALL:append = " \
     swupdate \
     swupdate-www \
     swupdate-public-key \
-    grub-editenv \
     kernel-image \
     e2fsprogs-mke2fs \
     util-linux-blkid \
     libgcc \
     kernel-modules \
-    linux-firmware-rtl8168 \
     eicke-network \
     eicke-bootconfirm \
-    zynq-pcie-rproc \
-    zynq-rtu-firmware \
     python3 \
     python3-modules \
 "
 
-# The ESP holds GRUB + grub.cfg + grubenv and is mounted at /boot so SWUpdate
-# (and grub-editenv) can read/write the boot environment. Seed an initial
-# grubenv onto the ESP at EFI/BOOT/grubenv (swupdate's GRUB handler won't
-# create it) via the grubenv recipe + IMAGE_BOOT_FILES.
-# NOTE: the bootimg-efi wic plugin reads IMAGE_EFI_BOOT_FILES (not the
-# bootimg-partition IMAGE_BOOT_FILES) for files placed on the ESP.
-# Under efi-secure-boot the grub-efi recipe creates+ships grubenv on the ESP
-# itself (and would conflict with this standalone seed), so only use the
-# grubenv recipe when secure boot is off (the bootimg-efi flow).
-IMAGE_EFI_BOOT_FILES:append = "${@bb.utils.contains('DISTRO_FEATURES', 'efi-secure-boot', '', ' grubenv;EFI/BOOT/grubenv', d)}"
-do_image_wic[depends] += "${@bb.utils.contains('DISTRO_FEATURES', 'efi-secure-boot', '', 'grubenv:do_deploy', d)}"
+# x86-board-specific bits: the Realtek NIC firmware and the Zynq-RTU-over-PCIe
+# host driver + firmware only make sense on the x86 machines.
+IMAGE_INSTALL:append:x86-64 = " \
+    linux-firmware-rtl8168 \
+    zynq-pcie-rproc \
+    zynq-rtu-firmware \
+"
 
-# grub.cfg is pulled in at wic runtime via the wks 'bootloader --configfile',
-# so bitbake doesn't track it automatically; register it as a task input so
-# edits to the A/B boot config actually trigger a wic rebuild.
-do_image_wic[file-checksums] += "${THISDIR}/../../files/wic/grub.cfg:True"
+# Bootloader-specific half of the A/B scheme (env seeding, env tooling, boot
+# script/config wiring). x86/EFI machines default to GRUB; qemuarm-uboot sets
+# EICKE_BOOTLOADER = "u-boot" in its machine conf.
+EICKE_BOOTLOADER ??= "grub-efi"
+require recipes-core/images/eicke-ab-${EICKE_BOOTLOADER}.inc
 
 # Mount the ESP at /boot (so swupdate + the confirm service can read/write the
 # grubenv) and the data partition, in the image's OWN fstab. This must live in

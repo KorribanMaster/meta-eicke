@@ -5,6 +5,9 @@ read-only rootfs with a persistent /etc overlay on the data partition, and \
 signature-verified SWUpdate."
 LICENSE = "MIT"
 
+# UEFI Secure Boot / TPM hardening is wired for the x86 machines only.
+COMPATIBLE_MACHINE = "qemux86-64|genericx86-64"
+
 require recipes-core/images/eicke-image.bb
 # Credentials, key-only SSH and dev-laxness removal (shared with netboot-prod).
 require recipes-core/images/eicke-prod-hardening.inc

@@ -7,6 +7,10 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 # environment bootloader backend + handler.
 SRC_URI += "file://defconfig"
 
+# qemuarm-uboot boots via U-Boot: swap the bootenv backend with a Kconfig
+# fragment (merged onto the defconfig; auto-adds the libubootenv dependency).
+SRC_URI:append:qemuarm-uboot = " file://uboot-bootloader.cfg"
+
 # meta-swupdate ships swupdate.service as Type=notify, but we build without
 # CONFIG_SYSTEMD (no sd_notify), so systemd times the unit out and the system
 # reports "degraded". Drop in a Type=simple override.
