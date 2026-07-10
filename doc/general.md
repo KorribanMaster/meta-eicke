@@ -62,6 +62,8 @@ are described as well.
   - [eicke-image](./images/eicke-image.md),
   - [eicke-image-dev](./images/eicke-image-dev.md) (debug tools),
   - [eicke-image-prod](./images/eicke-image-prod.md) (hardened production image),
+  - [eicke-image-netboot](./images/eicke-image-netboot.md) (iPXE netboot, qemux86-64 only),
+  - [eicke-image-netboot-prod](./images/eicke-image-netboot-prod.md) (Secure Boot: signed iPXE + signed UKI),
   - [eicke-update-image](./images/eicke-update-image.md)
 - Machines — [`machines/`](./machines/):
   - [qemux86-64](./machines/qemux86-64.md) (incl. how to run & interact),

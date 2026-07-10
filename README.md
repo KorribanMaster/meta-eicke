@@ -89,7 +89,11 @@ Start at [`doc/general.md`](doc/general.md) (index). Highlights:
 - Images — [`doc/images/`](doc/images/): [eicke-image](doc/images/eicke-image.md),
   [eicke-update-image](doc/images/eicke-update-image.md),
   [eicke-image-dev](doc/images/eicke-image-dev.md) (debug tools),
-  [eicke-image-prod](doc/images/eicke-image-prod.md) (hardened production image)
+  [eicke-image-prod](doc/images/eicke-image-prod.md) (hardened production image),
+  [eicke-image-netboot](doc/images/eicke-image-netboot.md) (iPXE netboot,
+  qemux86-64 only),
+  [eicke-image-netboot-prod](doc/images/eicke-image-netboot-prod.md) (Secure
+  Boot: signed iPXE + signed UKI)
 - Machines — [`doc/machines/`](doc/machines/):
   [qemux86-64](doc/machines/qemux86-64.md) (incl. how to run & interact),
   [genericx86-64](doc/machines/genericx86-64.md)

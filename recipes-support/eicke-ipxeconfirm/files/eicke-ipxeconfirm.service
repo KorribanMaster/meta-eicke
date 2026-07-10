@@ -1,0 +1,15 @@
+[Unit]
+Description=Create/confirm iPXE A/B UEFI boot entries
+Documentation=man:efibootmgr(8)
+# The iPXE binaries live on the ESP, which the image mounts at /boot.
+RequiresMountsFor=/boot
+After=local-fs.target
+ConditionPathExists=/sys/firmware/efi
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/eicke-ipxeconfirm
+
+[Install]
+WantedBy=multi-user.target

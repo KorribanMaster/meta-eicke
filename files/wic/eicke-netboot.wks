@@ -1,0 +1,14 @@
+# Netboot disk layout: iPXE-only ESP + persistent data. No rootfs on disk --
+# the OS (bzImage + cpio.gz initramfs) is fetched by iPXE over the network.
+#
+#   p1  esp   vfat   64 MiB  EFI/BOOT/BOOTX64.EFI (firmware fallback copy),
+#                            EFI/BOOT/ipxe-a.efi, EFI/BOOT/ipxe-b.efi
+#   p2  data  ext4    4 GiB  persistent data
+#
+# The ESP files come from IMAGE_BOOT_FILES (bootimg-partition plugin, sourced
+# from DEPLOY_DIR_IMAGE). --no-fstab-update everywhere: there is no build-time
+# rootfs partition to patch; the image's own /etc/fstab mounts by LABEL.
+
+bootloader --ptable gpt
+part /boot --source bootimg-partition --label esp --part-name esp --fstype=vfat --active --align 1024 --size 64 --use-uuid --no-fstab-update
+part /data --label data --part-name data --fstype=ext4 --align 1024 --fixed-size 4096 --use-uuid --no-fstab-update

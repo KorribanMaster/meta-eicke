@@ -1,0 +1,20 @@
+#!ipxe
+# Embedded netboot script for the eicke netboot image.
+#
+# Plain `autoboot` gives up after a single failed DHCP/boot attempt and drops
+# to the iPXE shell — unacceptable for an unattended device, so retry forever.
+# `autoboot` honors the DHCP-provided bootfile (e.g. QEMU slirp
+# `tftp=...,bootfile=boot.ipxe`, or next-server/filename from a real DHCP
+# server), which is expected to chain the kernel + initramfs.
+echo eicke iPXE netboot (build 3)
+:start
+dhcp || goto retry
+autoboot || goto retry
+:retry
+echo eicke iPXE: netboot failed, retrying in 3s
+# Failed chain attempts leave the downloaded image in memory; free it or
+# repeated retries of a large image (e.g. a UKI) exhaust the heap with
+# "No space left on device".
+imgfree ||
+sleep 3
+goto start
