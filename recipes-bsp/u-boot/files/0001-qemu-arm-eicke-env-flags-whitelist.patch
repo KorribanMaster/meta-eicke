@@ -1,0 +1,28 @@
+From: Eicke Hecht <eicke.hecht@outlook.de>
+Subject: [PATCH] qemu-arm: whitelist the eicke A/B env variables
+
+CFG_ENV_FLAGS_LIST_STATIC is a board-header define (not Kconfig), so it
+cannot be set from a .cfg fragment. Together with CONFIG_ENV_WRITEABLE_LIST
+(set in eicke-env-fat.cfg) it restricts which variables may be modified at
+runtime or imported from the attacker-writable uboot.env on the FAT boot
+partition: the eicke A/B state contract (rootdev/ustate/bootcount, see
+doc/images/eicke-update-image.md in meta-eicke) plus the variables the
+eicke boot script assigns itself before use (bootargs/slot/fdt_addr_r).
+Everything else keeps its compiled-in default.
+
+Upstream-Status: Inappropriate [eicke product configuration]
+
+--- a/include/configs/qemu-arm.h
++++ b/include/configs/qemu-arm.h
+@@ -11,4 +11,11 @@
+
+ /* For timer, QEMU emulates an ARMv7/ARMv8 architected timer */
+
++/* eicke: with CONFIG_ENV_WRITEABLE_LIST only these variables may be set at
++ * runtime / imported from uboot.env on the FAT boot partition: the A/B state
++ * contract (rootdev/ustate/bootcount) plus the variables the eicke boot
++ * script assigns itself before use (bootargs/slot/fdt_addr_r). */
++#define CFG_ENV_FLAGS_LIST_STATIC \
++	"rootdev:sw,ustate:dw,bootcount:dw,bootargs:sw,slot:dw,fdt_addr_r:xw"
++
+ #endif /* __CONFIG_H */
