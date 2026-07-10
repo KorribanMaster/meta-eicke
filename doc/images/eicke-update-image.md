@@ -33,9 +33,29 @@ curl -F filename=@eicke-update-image-<machine>.rootfs.swu http://<target>:8080/u
 # then reboot from the web UI or `reboot`
 ```
 
-On reboot GRUB boots the new slot. The `eicke-bootconfirm` service then clears
-`ustate`; if the new slot never reaches that point, GRUB's bootcount logic rolls
-back to the previous slot.
+On reboot the bootloader boots the new slot. The `eicke-bootconfirm` service
+then clears `ustate`; if the new slot never reaches that point, the bootcount
+logic rolls back to the previous slot.
 
-See [doc/machines/qemux86-64.md](../machines/qemux86-64.md) for a full
-apply-and-verify walkthrough under QEMU.
+## The A/B state contract
+
+Exactly three mutable variables cross the trust boundary between userspace and
+the bootloader — on x86 in `grubenv` on the ESP, on qemuarm-uboot in
+`uboot.env` on the boot partition:
+
+| Variable | Values | Meaning |
+|---|---|---|
+| `rootdev` | `rootfs_a` \| `rootfs_b` | slot to boot |
+| `ustate` | `0` ok, `1` trial, `3` failed | SWUpdate trial state |
+| `bootcount` | `0` \| `1` | trial boot counter |
+
+They are the *only* boot inputs that may change at runtime, and the boot logic
+(`grub.cfg`/`boot-menu.inc` and `boot.cmd`, kept as 1:1 mirrors) treats them as
+untrusted data: `rootdev` is canonicalized to a literal before use, so env
+content can never reach the kernel command line. Writers are SWUpdate's
+bootloader handler and `eicke-bootconfirm` (plus the bootloader's own trial
+bookkeeping); nothing else should touch these variables.
+
+See [doc/machines/qemux86-64.md](../machines/qemux86-64.md) (GRUB) or
+[doc/machines/qemuarm-uboot.md](../machines/qemuarm-uboot.md) (U-Boot) for a
+full apply-and-verify walkthrough under QEMU.

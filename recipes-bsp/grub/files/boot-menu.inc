@@ -7,8 +7,14 @@
 # grub handler after writing the standby slot; a bootcount/ustate rollback
 # switches back if a freshly-updated image fails to confirm.
 
-# First boot (no grubenv yet) -> slot A
-if [ -z "${rootdev}" ]; then
+# Canonicalize rootdev. grubenv is writable, so treat its content as
+# UNTRUSTED data: anything that is not exactly "rootfs_b" (including empty on
+# first boot, or a crafted value like "rootfs_a init=/bin/sh") becomes the
+# literal "rootfs_a", so no external string can ever reach the kernel command
+# line below. Mirrored in recipes-bsp/u-boot/files/boot.cmd — keep in sync.
+if [ "${rootdev}" = "rootfs_b" ]; then
+    set rootdev="rootfs_b"
+else
     set rootdev="rootfs_a"
 fi
 

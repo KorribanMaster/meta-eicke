@@ -14,8 +14,14 @@
 # clobbers the ext4 label); the kernel then mounts root via PARTLABEL (GPT
 # name, untouched by the write).
 
-# First boot (no eicke vars in env yet) -> slot A
-if test -z "${rootdev}"; then
+# Canonicalize rootdev. uboot.env is writable, so treat its content as
+# UNTRUSTED data: anything that is not exactly "rootfs_b" (including empty on
+# first boot, or a crafted value like "rootfs_a init=/bin/sh") becomes the
+# literal "rootfs_a", so no external string can ever reach the kernel command
+# line below. Mirrored in grub.cfg/boot-menu.inc — keep in sync.
+if test "${rootdev}" = "rootfs_b"; then
+    setenv rootdev rootfs_b
+else
     setenv rootdev rootfs_a
 fi
 
