@@ -16,7 +16,9 @@ IMAGE_FEATURES:remove = "allow-empty-password empty-root-password allow-root-log
 # ---- SSH: deploy the ed25519 key for root + eicke, harden sshd --------------
 # Keys live in root-owned /etc/ssh/authorized_keys.d/<user> (works with a
 # read-only rootfs and avoids per-home ownership juggling).
-EICKE_SSH_PUBKEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICNIz4EuNBI8LpsfjUk5F+fC0/6Q+STuvnbGuyYBvXm+ eicke@xps-arch"
+# Weak default so a deployment (or CI/emulation test) can inject its own key
+# from local.conf/auto.conf without touching the recipe.
+EICKE_SSH_PUBKEY ?= "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICNIz4EuNBI8LpsfjUk5F+fC0/6Q+STuvnbGuyYBvXm+ eicke@xps-arch"
 
 eicke_prod_ssh_setup() {
     install -d -m 0755 ${IMAGE_ROOTFS}${sysconfdir}/ssh/authorized_keys.d

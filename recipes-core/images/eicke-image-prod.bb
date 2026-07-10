@@ -5,8 +5,11 @@ read-only rootfs with a persistent /etc overlay on the data partition, and \
 signature-verified SWUpdate."
 LICENSE = "MIT"
 
-# UEFI Secure Boot / TPM hardening is wired for the x86 machines only.
-COMPATIBLE_MACHINE = "qemux86-64|genericx86-64"
+# x86 machines get the full hardening incl. UEFI Secure Boot; qemuarm-uboot
+# gets everything except the boot-chain/TPM parts (gated :x86-64 below —
+# meta-secure-core is UEFI-only, a U-Boot FIT verified-boot chain would be
+# the ARM equivalent and is not wired up yet).
+COMPATIBLE_MACHINE = "qemux86-64|genericx86-64|qemuarm-uboot"
 
 require recipes-core/images/eicke-image.bb
 # Credentials, key-only SSH and dev-laxness removal (shared with netboot-prod).
@@ -14,31 +17,35 @@ require recipes-core/images/eicke-prod-hardening.inc
 
 inherit overlayfs-etc
 
-# ---- UEFI Secure Boot -------------------------------------------------------
+# ---- UEFI Secure Boot (x86 only) ---------------------------------------------
 # Production-specific wic whose ESP is populated from the rootfs's /boot/efi
 # (signed grub + configs), instead of the bootimg-efi plugin used by base/dev.
-WKS_FILE = "eicke-ab-prod.wks.in"
+# qemuarm-uboot keeps the machine conf's eicke-ab-uboot.wks.in (plain FAT boot
+# partition; no signed boot chain on ARM yet).
+WKS_FILE:x86-64 = "eicke-ab-prod.wks.in"
 
 # packagegroup-efi-secure-boot pulls the whole signed chain into /boot/efi:
 # shim (installed as the firmware default bootx64.efi), SELoader, grub-efi
 # (signed grubx64.efi + grub.cfg/boot-menu.inc + .sig + modules), efitools
 # (LockDown.efi for key enrollment), efibootmgr and mokutil. It also removes
 # the plain (unsigned) grub package.
-IMAGE_INSTALL:append = " packagegroup-efi-secure-boot"
+IMAGE_INSTALL:append:x86-64 = " packagegroup-efi-secure-boot"
 
-# ---- Encrypted /data (LUKS2, TPM2-sealed) -----------------------------------
+# ---- Encrypted /data (LUKS2, TPM2-sealed; x86 only) ---------------------------
 # cryptsetup for LUKS, tpm2-tools/cryptfs-tpm2 for sealing the key to PCR7.
 # The actual unlock + /etc overlay happens in the initramfs before switch_root
 # (replacing the overlayfs-etc preinit); these are also handy on the running
 # system for first-boot provisioning of the encrypted /data.
-IMAGE_INSTALL:append = " cryptsetup tpm2-tools cryptfs-tpm2"
+IMAGE_INSTALL:append:x86-64 = " cryptsetup tpm2-tools cryptfs-tpm2"
 
 # Minimal kernel modules: drop the catch-all (the base installs all modules for
-# bring-up) and keep only what this product needs — Realtek NIC (OTA), Intel GPU
-# (HDMI console), and the product remoteproc driver (kept from the base). AHCI /
-# ext4 / e1000e are built into the kernel (=y), so root-on-SATA needs no module.
+# bring-up) and keep only what each machine needs. x86: Realtek NIC (OTA),
+# Intel GPU (HDMI console), and the product remoteproc driver (kept from the
+# base); AHCI / ext4 / e1000e are built into the kernel (=y). qemuarm-uboot:
+# everything it boots with (virtio disk/net) is built into the kernel, so no
+# modules are added.
 IMAGE_INSTALL:remove = "kernel-modules"
-IMAGE_INSTALL:append = " kernel-module-r8169 kernel-module-i915"
+IMAGE_INSTALL:append:x86-64 = " kernel-module-r8169 kernel-module-i915"
 
 # ---- Read-only rootfs + persistent /etc overlay on the data partition --------
 # read-only-rootfs makes / immutable (fstab "/" => ro); overlayfs-etc supplies a

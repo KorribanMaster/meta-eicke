@@ -88,6 +88,11 @@ The `eicke-bootconfirm` service then accepts slot B (`ustate=0`, via
   `/boot/uboot.env`; its size (0x10000) must match in three places: the u-boot
   Kconfig fragment (`CONFIG_ENV_SIZE`), `ubootenv.bb` (`mkenvimage -s`) and
   `/etc/fw_env.config`.
-- The prod (Secure Boot/TPM) and netboot variants are x86-only
-  (`COMPATIBLE_MACHINE`); this machine covers `eicke-image`,
-  `eicke-image-dev` and their update bundles.
+- `eicke-image-prod` builds for this machine too: real credentials, SSH key
+  auth, read-only rootfs with the `/etc` overlay on `/data`, minimal kernel
+  modules and signed update bundles all apply — but **without** the UEFI
+  Secure Boot chain and TPM/LUKS wiring (both x86-gated in the recipe;
+  U-Boot FIT verified boot would be the ARM equivalent and is not wired up).
+  Log in via SSH (`ssh -p 2222 root@127.0.0.1` under runqemu slirp) — serial
+  login needs the real root password from the credentials file. The netboot
+  variants remain x86-only.

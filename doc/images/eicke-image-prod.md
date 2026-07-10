@@ -9,6 +9,9 @@ the required kernel modules.
 - Build: `bitbake eicke-image-prod`
 - Update bundle: `bitbake eicke-update-image-prod` → `eicke-update-image-prod-<machine>.rootfs.swu`
 - Artifacts: `tmp/deploy/images/<machine>/eicke-image-prod-<machine>.rootfs.wic`
+- Machines: the x86 machines get the full hardening; on
+  [qemuarm-uboot](../machines/qemuarm-uboot.md) the UEFI Secure Boot and
+  TPM/LUKS parts are skipped (`:x86-64`-gated), the rest applies unchanged.
 
 ## Credentials
 
