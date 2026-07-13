@@ -10,13 +10,13 @@ about what happens *after* U-Boot starts.
 
 | Stage | x86 (`eicke-image-prod`, GRUB) | ARM (`qemuarm-uboot`) |
 |---|---|---|
-| Bootloader → OS | UEFI Secure Boot: shim → SELoader → grub → signed kernel + `.p7b` (meta-secure-core) | **not verified yet** — `boot.scr` + raw `zImage` via `bootz` |
+| Bootloader → OS | UEFI Secure Boot: shim → SELoader → grub → signed kernel + `.p7b` (meta-secure-core) | **signed kernel FIT** via `bootm`; runtime enforcement deferred (see below) |
 | Boot logic integrity | signed `boot-menu.inc` (grub verifies) | ⚠ `boot.cmd` compiled into `boot.scr`, unsigned on FAT |
 | Mutable A/B state | `grubenv`, data-only by construction | `uboot.env`, **contained** to the 3 contract vars (done) |
 | Cmdline injection via `rootdev` | fixed (canonicalized) | fixed (canonicalized) |
 | Update bundle | SWUpdate RSA-PSS signed | SWUpdate RSA-PSS signed (same) |
 
-Two hardening items already landed and apply to **both** bootloaders:
+Three hardening items already landed:
 
 1. **rootdev canonicalization** (`a6996c2`) — env content can no longer reach
    the kernel command line on either bootloader.
@@ -24,32 +24,42 @@ Two hardening items already landed and apply to **both** bootloaders:
    `CFG_ENV_FLAGS_LIST_STATIC` whitelist so a tampered `uboot.env` cannot inject
    `bootcmd`/`bootargs`. This closes the gap that `grubenv` never had (grubenv
    feeds data into *signed* grub logic; `uboot.env` replaces the whole env).
+3. **Signed kernel FIT** — `eicke-image-prod` on `qemuarm-uboot` ships a signed
+   `/boot/fitImage` per A/B slot (`linux-yocto-fitimage`, key `eicke-fit` in
+   `/yocto/keys`); `boot.cmd` prefers it via `bootm` (zImage fallback for
+   base/dev). U-Boot parses and hash-verifies the FIT and boots. **Runtime
+   signature ENFORCEMENT is deferred**: under QEMU virt U-Boot's control DTB
+   comes from the emulator (OF_BOARD) and carries no verification key, so the
+   config-node signature best-effort-verifies rather than being enforced. On
+   real hardware the key lives in a fused/verified U-Boot's control DTB and the
+   loop closes with no code change. Turning enforcement on under qemu needs the
+   `-dtb` key-injection step in "remaining work" below.
 
 ## What is still missing on ARM (in priority order)
 
-1. **Signed kernel FIT.** Package the kernel (+DTB where applicable) as a FIT
-   image, sign it, and load it with `bootm` instead of the raw `bootz zImage`.
-   `CONFIG_FIT_SIGNATURE=y` is already in `qemu_arm_defconfig`; oe-core ships
-   the machinery (`kernel-fit-image.bbclass`, `uboot-sign.bbclass`,
-   `linux-yocto-fitimage.bb`). Mark the config key `required` and drop
-   `CONFIG_LEGACY_IMAGE_FORMAT` so an unsigned/raw image is refused.
+Done: the signed kernel FIT (built + booted, see item 3 above and
+`conf/machine/include/eicke-verified-boot.inc`). The key material — a fixed
+`eicke-fit` RSA keypair in the shared `/yocto/keys` store — is in place. What
+remains is turning best-effort verification into hard enforcement:
+
+1. **Enforcement — key trust under QEMU (the real blocker).** `uboot-sign`
+   embeds the FIT verification pubkey into the *built* `u-boot.dtb`. But
+   qemu-virt hands U-Boot its control DTB at runtime (`OF_BOARD`; `boot.cmd`
+   boots with `${fdtcontroladdr}`), so the built DTB — and its key — is never
+   consulted, and the FIT signature is verified best-effort rather than
+   enforced. **Path around it:** qemu-virt honors `-dtb <file>`, so dump the
+   qemu DTB once, insert the `/signature` node (the same mkimage `-K` step
+   uboot-sign runs on `u-boot.dtb`), pass that key-bearing DTB to qemu via
+   `QB_OPT_APPEND`, and mark the FIT config key `required` + drop
+   `CONFIG_LEGACY_IMAGE_FORMAT` so an unsigned/tampered image is refused. On
+   real hardware the key lives in a fused/verified U-Boot's control DTB and this
+   wrinkle disappears — emulator plumbing, the same class of issue as the swtpm
+   limitation in [encrypted-data-todo](encrypted-data-todo.md).
 2. **Signed boot logic.** Move the A/B logic from the FAT `boot.scr` into the
    **compiled-in default `bootcmd`** (an env fragment) — the analog of x86's
    signed `boot-menu.inc`. Logic then changes only via the controlled U-Boot
    artifact, not via FAT contents. (Alternative: wrap the script in a signed
    FIT — more machinery, same result.)
-3. **Key trust under QEMU (the real blocker).** `uboot-sign` embeds the FIT
-   verification pubkey into the *built* `u-boot.dtb`. But qemu-virt hands U-Boot
-   its control DTB at runtime (`OF_BOARD`; our `boot.cmd` already boots with
-   `${fdtcontroladdr}`), so the built DTB — and its key — is never consulted.
-   **Path around it:** qemu-virt honors `-dtb <file>`, so dump the qemu DTB
-   once, insert the `/signature` node (the same mkimage `-K` step uboot-sign
-   runs on `u-boot.dtb`), and pass that key-bearing DTB to qemu via
-   `QB_OPT_APPEND`. On real hardware the DTB ships inside the signed FIT and
-   this whole wrinkle disappears — it is emulator plumbing, the same class of
-   issue as the swtpm limitation in [encrypted-data-todo](encrypted-data-todo.md).
-4. **Key material.** One FIT RSA keypair under the existing `/yocto/keys` store,
-   referenced by `UBOOT_SIGN_KEYDIR`/`UBOOT_SIGN_KEYNAME`.
 
 Not attempted here and explicitly out of scope: the pre-U-Boot chain (BootROM →
 SPL → U-Boot verification via SoC fuses), which is hardware-specific.

@@ -6,9 +6,10 @@ signature-verified SWUpdate."
 LICENSE = "MIT"
 
 # x86 machines get the full hardening incl. UEFI Secure Boot; qemuarm-uboot
-# gets everything except the boot-chain/TPM parts (gated :x86-64 below —
-# meta-secure-core is UEFI-only, a U-Boot FIT verified-boot chain would be
-# the ARM equivalent and is not wired up yet).
+# gets everything except the TPM/LUKS parts (gated :x86-64 below —
+# meta-secure-core is UEFI-only). The ARM boot-chain equivalent is a signed
+# kernel FIT (build-and-boot; runtime enforcement deferred, see below and
+# doc/verified-boot.md).
 COMPATIBLE_MACHINE = "qemux86-64|genericx86-64|qemuarm-uboot"
 
 require recipes-core/images/eicke-image.bb
@@ -21,8 +22,17 @@ inherit overlayfs-etc
 # Production-specific wic whose ESP is populated from the rootfs's /boot/efi
 # (signed grub + configs), instead of the bootimg-efi plugin used by base/dev.
 # qemuarm-uboot keeps the machine conf's eicke-ab-uboot.wks.in (plain FAT boot
-# partition; no signed boot chain on ARM yet).
+# partition; ARM verified boot is a signed kernel FIT instead — see below).
 WKS_FILE:x86-64 = "eicke-ab-prod.wks.in"
+
+# ---- Signed kernel FIT verified boot (ARM; build-and-boot, enforcement deferred)
+# On qemuarm-uboot the ARM analog of the x86 signed boot chain: ship a signed
+# /boot/fitImage per A/B slot (linux-yocto-fitimage packages it into the
+# rootfs; the machine conf's eicke-verified-boot.inc turns on FIT signing).
+# boot.cmd prefers /boot/fitImage (bootm) over the plain zImage. Runtime
+# signature enforcement is deferred (qemu OF_BOARD) — see doc/verified-boot.md.
+# kernel-image (zImage) stays installed from the base image as the fallback.
+IMAGE_INSTALL:append:qemuarm-uboot = " linux-yocto-fitimage"
 
 # packagegroup-efi-secure-boot pulls the whole signed chain into /boot/efi:
 # shim (installed as the firmware default bootx64.efi), SELoader, grub-efi

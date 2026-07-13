@@ -54,14 +54,29 @@ fi
 # console=ttyAMA0,115200: qemu virt's PL011 serial console.
 setenv bootargs "root=PARTLABEL=${rootdev} rootwait console=ttyAMA0,115200"
 
-echo "Eicke Linux (${rootdev}): loading /boot/zImage from virtio 0:${slot}"
-ext4load virtio 0:${slot} ${kernel_addr_r} /boot/zImage
-
 # Boot with the DTB QEMU generated and handed to U-Boot (fdtcontroladdr) — the
 # guest hardware is defined by QEMU itself, no on-disk DTB needed. The blob
-# sits inside U-Boot's reserved memory where bootz's FDT reservation fails
-# ("Failed to reserve memory for fdt"), so copy it into free RAM first (the
-# unused ramdisk_addr_r slot; a generous 1 MiB covers any qemu-virt DTB).
+# sits inside U-Boot's reserved memory where the kernel's FDT reservation
+# fails ("Failed to reserve memory for fdt"), so copy it into free RAM first
+# (a generous 1 MiB covers any qemu-virt DTB).
 setenv fdt_addr_r 0x44000000
 cp.b ${fdtcontroladdr} ${fdt_addr_r} 0x100000
-bootz ${kernel_addr_r} - ${fdt_addr_r}
+
+# Prefer a signed FIT kernel (eicke-image-prod ships /boot/fitImage per slot);
+# fall back to the plain zImage for the base/dev images. Same script for both.
+# The FIT's kernel signature is verified against keys in U-Boot's control DTB;
+# under qemu that DTB comes from the emulator and carries no key, so bootm
+# best-effort-verifies, warns, and boots (enforcement deferred, see
+# doc/verified-boot.md). '-' = no ramdisk; external ${fdt_addr_r} supplies the
+# DTB since the FIT is kernel-only.
+# Load the FIT high (0x41000000) so bootm's copy of the kernel to its embedded
+# load address (0x40008000 + ~8 MiB, set in eicke-verified-boot.inc) does not
+# overlap the FIT blob; the DTB above at 0x44000000 is clear of both.
+if ext4load virtio 0:${slot} 0x41000000 /boot/fitImage; then
+    echo "Eicke Linux (${rootdev}): booting signed /boot/fitImage from virtio 0:${slot}"
+    bootm 0x41000000 - ${fdt_addr_r}
+else
+    echo "Eicke Linux (${rootdev}): booting /boot/zImage from virtio 0:${slot}"
+    ext4load virtio 0:${slot} ${kernel_addr_r} /boot/zImage
+    bootz ${kernel_addr_r} - ${fdt_addr_r}
+fi
