@@ -14,7 +14,7 @@ SRC_URI = " \
     file://eicke-ipxeconfirm.service \
 "
 
-RDEPENDS:${PN} = "efibootmgr util-linux-blkid"
+RDEPENDS:${PN} = "efibootmgr util-linux-blkid eicke-confirm-common"
 
 inherit systemd
 

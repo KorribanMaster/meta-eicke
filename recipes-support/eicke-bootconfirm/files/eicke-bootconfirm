@@ -9,8 +9,13 @@
 #
 # Backend-agnostic: GRUB (grubenv on the ESP, x86 machines) or U-Boot
 # (uboot.env on the boot partition via libubootenv, qemuarm-uboot). The
-# bootloader-specific tool is installed by the image's eicke-ab-*.inc.
+# bootloader-specific tool is installed by the image's eicke-ab-*.inc. The
+# trial-gate lifecycle + logging are shared with eicke-ipxeconfirm via
+# eicke-confirm-lib.sh.
 
+. /usr/libexec/eicke-confirm-lib.sh
+
+TAG=eicke-bootconfirm
 GRUBENV=/boot/EFI/BOOT/grubenv
 
 if command -v grub-editenv >/dev/null 2>&1 && [ -f "$GRUBENV" ]; then
@@ -20,17 +25,12 @@ elif command -v fw_printenv >/dev/null 2>&1; then
     get_ustate() { fw_printenv -n ustate 2>/dev/null; }
     # Two separate writes (fw_setenv -s needs a real file, not stdin). Order
     # matters: clear ustate first — if interrupted in between, ustate=0 already
-    # disarms the trial and the stale bootcount is ignored by boot.scr.
+    # disarms the trial and the stale bootcount is ignored by bootcmd.
     confirm() { fw_setenv ustate 0 && fw_setenv bootcount 0; }
 else
-    logger -t eicke-bootconfirm "no bootloader env tool found; skipping"
+    eicke_log "$TAG" "no bootloader env tool found; skipping"
     exit 0
 fi
 
-# Only act while an update is on trial.
-if [ "$(get_ustate)" = "1" ]; then
-    confirm
-    logger -t eicke-bootconfirm "boot confirmed: ustate -> 0 (slot accepted)"
-fi
-
+eicke_confirm_on_trial "$TAG" get_ustate confirm
 exit 0

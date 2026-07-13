@@ -11,9 +11,11 @@ SRC_URI = " \
     file://eicke-bootconfirm.service \
 "
 
+# eicke-confirm-common: the shared eicke-confirm-lib.sh the script sources.
 # No RDEPENDS on an env tool: the script autodetects grub-editenv vs
 # fw_printenv at runtime, and the image's eicke-ab-*.inc installs the right
 # one (grub-editenv resp. libubootenv-bin). Keeps this package machine-agnostic.
+RDEPENDS:${PN} = "eicke-confirm-common"
 
 inherit systemd
 

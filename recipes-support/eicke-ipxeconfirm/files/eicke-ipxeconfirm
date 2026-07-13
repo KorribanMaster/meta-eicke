@@ -11,7 +11,14 @@
 #      BootOrder[0]; promote it to the front. BootNext is one-shot, so a slot
 #      that never reaches this script is automatically abandoned on the next
 #      reset.
+#
+# Same confirm lifecycle as eicke-bootconfirm (grubenv/uboot.env), different
+# backend: the UEFI BootOrder/BootNext mechanics below are specific to netboot,
+# but the logging is shared via eicke-confirm-lib.sh.
 set -eu
+
+. /usr/libexec/eicke-confirm-lib.sh
+TAG=eicke-ipxeconfirm
 
 [ -d /sys/firmware/efi ] || exit 0
 
@@ -23,7 +30,7 @@ grep -q ' /sys/firmware/efi/efivars ' /proc/mounts || \
 mount -o remount,rw /sys/firmware/efi/efivars 2>/dev/null || true
 
 # Locate the ESP (filesystem label "esp") -> --disk/--part for efibootmgr.
-espdev=$(blkid -L esp) || { logger -t eicke-ipxeconfirm "no ESP found"; exit 0; }
+espdev=$(blkid -L esp) || { eicke_log "$TAG" "no ESP found"; exit 0; }
 espname=$(basename "$espdev")
 part=$(cat /sys/class/block/"$espname"/partition)
 disk=/dev/$(basename "$(readlink -f /sys/class/block/"$espname"/..)")
@@ -42,13 +49,13 @@ for slot in a b; do
     n=$(entry_num ipxe-$slot)
     if [ -n "$n" ] && ! printf '%s\n' "$ebm_out" | grep "^Boot$n" | grep -qi "$espuuid"; then
         efibootmgr --bootnum "$n" --delete-bootnum >/dev/null
-        logger -t eicke-ipxeconfirm "deleted stale UEFI boot entry ipxe-$slot ($n)"
+        eicke_log "$TAG" "deleted stale UEFI boot entry ipxe-$slot ($n)"
         ebm_out=$(efibootmgr)
     fi
     if [ -z "$(entry_num ipxe-$slot)" ]; then
         efibootmgr --create --disk "$disk" --part "$part" \
                    --label "ipxe-$slot" --loader "\\EFI\\BOOT\\ipxe-$slot.efi" >/dev/null
-        logger -t eicke-ipxeconfirm "created UEFI boot entry ipxe-$slot"
+        eicke_log "$TAG" "created UEFI boot entry ipxe-$slot"
         created=1
     fi
 done
@@ -76,8 +83,8 @@ new_order="$front${rest:+,$rest}"
 
 if [ "$new_order" != "$order" ]; then
     efibootmgr --bootorder "$new_order" >/dev/null
-    logger -t eicke-ipxeconfirm "BootOrder: ${order:-<empty>} -> $new_order (BootCurrent=$current)"
+    eicke_log "$TAG" "BootOrder: ${order:-<empty>} -> $new_order (BootCurrent=$current)"
 else
-    logger -t eicke-ipxeconfirm "BootOrder already correct ($order)"
+    eicke_log "$TAG" "BootOrder already correct ($order)"
 fi
 exit 0
