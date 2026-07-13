@@ -16,8 +16,8 @@ inherit swupdate
 require swupdate-signing.inc
 
 python () {
-    if not bb.utils.contains('DISTRO_FEATURES', 'efi-secure-boot', True, False, d):
-        raise bb.parse.SkipRecipe("eicke-update-image-netboot-prod requires EICKE_SECURE_BOOT=1 (efi-secure-boot)")
+    if not bb.utils.contains('DISTRO_FEATURES', 'eicke-verified-boot', True, False, d):
+        raise bb.parse.SkipRecipe("eicke-update-image-netboot-prod requires EICKE_VERIFIED_BOOT=1")
 }
 
 # The deployed iPXE binary -- already db-signed in this build (see ipxe_git.bb).

@@ -5,11 +5,13 @@ read-only rootfs with a persistent /etc overlay on the data partition, and \
 signature-verified SWUpdate."
 LICENSE = "MIT"
 
-# x86 machines get the full hardening incl. UEFI Secure Boot; qemuarm-uboot
-# gets everything except the TPM/LUKS parts (gated :x86-64 below —
-# meta-secure-core is UEFI-only). The ARM boot-chain equivalent is a signed
-# kernel FIT (build-and-boot; runtime enforcement deferred, see below and
-# doc/verified-boot.md).
+# Runs on all three prod machines. Verified boot is a single switch
+# (EICKE_VERIFIED_BOOT=1, see conf/distro/eicke.conf) mapped per architecture:
+# x86 -> signed shim/SELoader/grub chain (meta-secure-core, efi-secure-boot);
+# ARM (qemuarm-uboot) -> signed kernel FIT. The verified-boot composition below
+# is gated on ${EICKE_VBOOT}; without the switch this is a hardened-but-not-
+# verified prod image. The TPM/LUKS bits stay :x86-64 (meta-secure-core is
+# UEFI-only). See doc/verified-boot.md.
 COMPATIBLE_MACHINE = "qemux86-64|genericx86-64|qemuarm-uboot"
 
 require recipes-core/images/eicke-image.bb
@@ -18,28 +20,23 @@ require recipes-core/images/eicke-prod-hardening.inc
 
 inherit overlayfs-etc
 
-# ---- UEFI Secure Boot (x86 only) ---------------------------------------------
-# Production-specific wic whose ESP is populated from the rootfs's /boot/efi
-# (signed grub + configs), instead of the bootimg-efi plugin used by base/dev.
-# qemuarm-uboot keeps the machine conf's eicke-ab-uboot.wks.in (plain FAT boot
-# partition; ARM verified boot is a signed kernel FIT instead — see below).
-WKS_FILE:x86-64 = "eicke-ab-prod.wks.in"
+# ---- Verified boot: signed boot chain per architecture -----------------------
+# x86 (efi-secure-boot on): production wic whose ESP is populated from the
+# rootfs's /boot/efi (signed grub + configs) via eicke-ab-prod.wks.in, plus
+# packagegroup-efi-secure-boot (shim as the firmware default bootx64.efi,
+# SELoader, signed grub-efi + grub.cfg/boot-menu.inc/.sig, efitools LockDown.efi,
+# efibootmgr, mokutil; removes the plain unsigned grub). Without the switch, use
+# the base bootimg-efi wic and ship no signed chain.
+WKS_FILE:x86-64 = "${@'eicke-ab-prod.wks.in' if d.getVar('EICKE_VBOOT') == '1' else 'eicke-ab.wks.in'}"
+IMAGE_INSTALL:append:x86-64 = "${@' packagegroup-efi-secure-boot' if d.getVar('EICKE_VBOOT') == '1' else ''}"
 
-# ---- Signed kernel FIT verified boot (ARM; build-and-boot, enforcement deferred)
-# On qemuarm-uboot the ARM analog of the x86 signed boot chain: ship a signed
-# /boot/fitImage per A/B slot (linux-yocto-fitimage packages it into the
-# rootfs; the machine conf's eicke-verified-boot.inc turns on FIT signing).
-# boot.cmd prefers /boot/fitImage (bootm) over the plain zImage. Runtime
-# signature enforcement is deferred (qemu OF_BOARD) — see doc/verified-boot.md.
-# kernel-image (zImage) stays installed from the base image as the fallback.
-IMAGE_INSTALL:append:qemuarm-uboot = " linux-yocto-fitimage"
-
-# packagegroup-efi-secure-boot pulls the whole signed chain into /boot/efi:
-# shim (installed as the firmware default bootx64.efi), SELoader, grub-efi
-# (signed grubx64.efi + grub.cfg/boot-menu.inc + .sig + modules), efitools
-# (LockDown.efi for key enrollment), efibootmgr and mokutil. It also removes
-# the plain (unsigned) grub package.
-IMAGE_INSTALL:append:x86-64 = " packagegroup-efi-secure-boot"
+# ARM (qemuarm-uboot): ship a signed /boot/fitImage per A/B slot
+# (linux-yocto-fitimage; the machine conf's eicke-verified-boot.inc turns on FIT
+# signing under the same feature). boot logic prefers /boot/fitImage (bootm)
+# over the plain zImage. Runtime signature enforcement is deferred (qemu
+# OF_BOARD) — see doc/verified-boot.md. kernel-image (zImage) from the base
+# image stays as the fallback.
+IMAGE_INSTALL:append:qemuarm-uboot = "${@' linux-yocto-fitimage' if d.getVar('EICKE_VBOOT') == '1' else ''}"
 
 # ---- Encrypted /data (LUKS2, TPM2-sealed; x86 only) ---------------------------
 # cryptsetup for LUKS, tpm2-tools/cryptfs-tpm2 for sealing the key to PCR7.

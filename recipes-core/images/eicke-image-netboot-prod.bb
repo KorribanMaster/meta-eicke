@@ -18,8 +18,8 @@ require recipes-core/images/eicke-prod-hardening.inc
 # Only meaningful with the signing infrastructure active: the deployed
 # ipxe.efi must be db-signed and the UKI recipe needs DB.key.
 python () {
-    if not bb.utils.contains('DISTRO_FEATURES', 'efi-secure-boot', True, False, d):
-        raise bb.parse.SkipRecipe("eicke-image-netboot-prod requires EICKE_SECURE_BOOT=1 (efi-secure-boot)")
+    if not bb.utils.contains('DISTRO_FEATURES', 'eicke-verified-boot', True, False, d):
+        raise bb.parse.SkipRecipe("eicke-image-netboot-prod requires EICKE_VERIFIED_BOOT=1")
 }
 
 # /init wrapper: /data mount + /etc overlay before systemd. The cpio image

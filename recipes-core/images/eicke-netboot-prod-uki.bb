@@ -27,8 +27,8 @@ COMPATIBLE_HOST = "x86_64.*-linux"
 PACKAGE_ARCH = "${MACHINE_ARCH}"
 
 python () {
-    if not bb.utils.contains('DISTRO_FEATURES', 'efi-secure-boot', True, False, d):
-        raise bb.parse.SkipRecipe("eicke-netboot-prod-uki requires EICKE_SECURE_BOOT=1 (efi-secure-boot)")
+    if not bb.utils.contains('DISTRO_FEATURES', 'eicke-verified-boot', True, False, d):
+        raise bb.parse.SkipRecipe("eicke-netboot-prod-uki requires EICKE_VERIFIED_BOOT=1")
 }
 
 # Deployed name consumed by boot.ipxe / the sim script / docs.

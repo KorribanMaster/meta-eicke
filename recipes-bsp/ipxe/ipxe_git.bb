@@ -54,7 +54,8 @@ do_install[noexec] = "1"
 
 # Deployed machine-suffix-free: wic's IMAGE_BOOT_FILES and the
 # eicke-update-image-netboot* SWUPDATE_IMAGES lookup both use the plain name.
-# Under efi-secure-boot (EICKE_SECURE_BOOT=1) the deployed ipxe.efi is signed
+# Under verified boot (EICKE_VERIFIED_BOOT=1 -> efi-secure-boot on x86) the
+# deployed ipxe.efi is signed
 # with the UEFI db key so the firmware itself verifies it: iPXE is booted
 # DIRECTLY from the UEFI A/B entries, with no shim/SELoader in between (shim
 # chainloads a fixed next-stage name, incompatible with BootNext pointing at
@@ -73,7 +74,7 @@ python do_deploy() {
         shutil.copyfile(src, deploydir + '/ipxe.efi')
 }
 addtask deploy after do_compile before do_build
-do_deploy[prefuncs] += "${@bb.utils.contains('DISTRO_FEATURES', 'efi-secure-boot', 'check_deploy_keys', '', d)}"
+do_deploy[prefuncs] += "${@bb.utils.contains('DISTRO_FEATURES', 'eicke-verified-boot', 'check_deploy_keys', '', d)}"
 
 # Nothing is packaged; the artifact is consumed from DEPLOY_DIR_IMAGE.
 EXCLUDE_FROM_WORLD = "1"
