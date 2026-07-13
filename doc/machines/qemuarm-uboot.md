@@ -9,9 +9,9 @@ How it maps to the GRUB scheme:
 
 | | x86 (GRUB-EFI) | qemuarm-uboot (U-Boot) |
 |---|---|---|
-| Boot partition (p1, `esp`) | ESP: GRUB + grub.cfg + grubenv | FAT: `boot.scr` + `uboot.env` |
+| Boot partition (p1, `esp`) | ESP: GRUB + grub.cfg + grubenv | FAT: `uboot.env` (A/B state only) |
 | A/B state (`rootdev`/`ustate`/`bootcount`) | grubenv | `uboot.env` (env-in-FAT) |
-| Slot selection + rollback | `grub.cfg` | `boot.cmd` → `boot.scr` |
+| Slot selection + rollback | `grub.cfg` | compiled-in `bootcmd` (in the U-Boot binary) |
 | Env tool on target | `grub-editenv` | `fw_printenv`/`fw_setenv` (libubootenv) |
 | Kernel | `/boot/bzImage` in the active slot | `/boot/zImage` in the active slot |
 
@@ -43,7 +43,7 @@ MACHINE=qemuarm-uboot runqemu eicke-image wic nographic slirp
 
 - No `kvm`: an ARM32 guest cannot use KVM on an x86 host (TCG emulation only).
 - U-Boot loads its environment from `uboot.env` on the boot partition
-  ("Loading Environment from FAT... OK"), runs `boot.scr`, loads the active
+  ("Loading Environment from FAT... OK"), runs the compiled-in `bootcmd`, loads the active
   slot's `/boot/zImage` and boots with the QEMU-generated device tree.
 
 ## Interact
@@ -73,7 +73,7 @@ reboot
 
 The `eicke-bootconfirm` service then accepts slot B (`ustate=0`, via
 `fw_setenv`), so subsequent reboots stay on B. If the new slot fails to boot,
-`boot.scr` rolls back to A automatically (`ustate=3`).
+the compiled-in `bootcmd` rolls back to A automatically (`ustate=3`).
 
 ## Notes
 
@@ -81,7 +81,7 @@ The `eicke-bootconfirm` service then accepts slot B (`ustate=0`, via
   dirty the build artifact. Append `snapshot` to the runqemu command to keep
   it pristine (changes persist across guest reboots within one QEMU run and
   are discarded on exit — exactly what an A/B update test needs).
-- Rollback lives in `boot.scr` (mirroring `grub.cfg`), not in U-Boot's
+- Rollback lives in the compiled-in `bootcmd` (mirroring `grub.cfg`), not in U-Boot's
   `CONFIG_BOOTCOUNT_LIMIT` machinery: a hang before the script runs does not
   increment the counter — the same limitation as the GRUB flow.
 - The env is shared between U-Boot and userspace through the FAT file
@@ -90,9 +90,12 @@ The `eicke-bootconfirm` service then accepts slot B (`ustate=0`, via
   `/etc/fw_env.config`.
 - `eicke-image-prod` builds for this machine too: real credentials, SSH key
   auth, read-only rootfs with the `/etc` overlay on `/data`, minimal kernel
-  modules and signed update bundles all apply — but **without** the UEFI
-  Secure Boot chain and TPM/LUKS wiring (both x86-gated in the recipe;
-  U-Boot FIT verified boot would be the ARM equivalent and is not wired up).
-  Log in via SSH (`ssh -p 2222 root@127.0.0.1` under runqemu slirp) — serial
-  login needs the real root password from the credentials file. The netboot
-  variants remain x86-only.
+  modules and signed update bundles all apply. With `EICKE_VERIFIED_BOOT = "1"`
+  it also ships a **signed kernel FIT** (`/boot/fitImage`, booted via the
+  compiled-in `bootcmd`) — the ARM analog of the x86 signed boot chain
+  (runtime signature enforcement deferred under qemu; see
+  [verified-boot](../verified-boot.md)). The TPM/LUKS wiring stays x86-only
+  (meta-secure-core is UEFI-only). Log in via SSH
+  (`ssh -p 2222 root@127.0.0.1` under runqemu slirp) — serial login needs the
+  real root password from the credentials file. The netboot variants remain
+  x86-only.

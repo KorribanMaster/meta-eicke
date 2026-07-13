@@ -50,7 +50,7 @@ the bootloader — on x86 in `grubenv` on the ESP, on qemuarm-uboot in
 | `bootcount` | `0` \| `1` | trial boot counter |
 
 They are the *only* boot inputs that may change at runtime, and the boot logic
-(`grub.cfg`/`boot-menu.inc` and `boot.cmd`, kept as 1:1 mirrors) treats them as
+(`grub.cfg`/`boot-menu.inc` and the U-Boot `CONFIG_BOOTCOMMAND`, kept as 1:1 mirrors) treats them as
 untrusted data: `rootdev` is canonicalized to a literal before use, so env
 content can never reach the kernel command line. Writers are SWUpdate's
 bootloader handler and `eicke-bootconfirm` (plus the bootloader's own trial
