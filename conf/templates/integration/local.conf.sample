@@ -93,9 +93,31 @@ ROOTFS_B_LABEL = "rootfs_b"
 # the same signatures the Yocto autobuilder used, so they download instead of
 # rebuild. (BB_HASHSERVE = "auto" and BB_SIGNATURE_HANDLER = "OEEquivHash" are
 # already openembedded-core defaults.)
-BB_HASHSERVE_UPSTREAM = "wss://hashserv.yoctoproject.org/ws"
-SSTATE_MIRRORS ?= "file://.* http://sstate.yoctoproject.org/all/PATH;downloadfilename=PATH"
+#
+# The cache server on the NAS (LabAutomation repository, nas/docker/yocto)
+# comes first: it holds our own shared state and the hash equivalence data of
+# all build machines, and asks the Yocto Project server for hashes it does not
+# know.
+# A build needs the home network or the VPN.
+BB_HASHSERVE = "yocto.eickeslab.org:8686"
+SSTATE_MIRRORS ?= "\
+    file://.* http://yocto.eickeslab.org/sstate/PATH;downloadfilename=PATH \
+    file://.* http://sstate.yoctoproject.org/all/PATH;downloadfilename=PATH"
+
+# PR server on the NAS: package revisions increase across builds and machines,
+# so targets can upgrade from the package feed.
+PRSERV_HOST = "yocto.eickeslab.org:8585"
+PACKAGE_FEED_URIS = "http://yocto.eickeslab.org/feeds/integration"
+PACKAGE_FEED_BASE_PATHS = "rpm"
 
 # Source (downloads) pre-mirror — faster, more robust source fetches.
 INHERIT += "own-mirrors"
-SOURCE_MIRROR_URL = "http://downloads.yoctoproject.org/mirror/sources/"
+SOURCE_MIRROR_URL = "http://yocto.eickeslab.org/downloads/"
+# after the NAS, try the mirror of the Yocto Project
+PREMIRRORS:append = " \
+    git://.*/.*     http://downloads.yoctoproject.org/mirror/sources/ \
+    ftp://.*/.*     http://downloads.yoctoproject.org/mirror/sources/ \
+    https?://.*/.*  http://downloads.yoctoproject.org/mirror/sources/"
+# Keep git sources as tarballs in DL_DIR, only files can be served by a mirror
+# (pushed to the NAS with nas/yocto-push.sh downloads).
+BB_GENERATE_MIRROR_TARBALLS = "1"
