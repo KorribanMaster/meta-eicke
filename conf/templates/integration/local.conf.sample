@@ -82,6 +82,20 @@ IMAGE_FSTYPES:append = " wic wic.bmap ext4"
 ROOTFS_A_LABEL = "rootfs_a"
 ROOTFS_B_LABEL = "rootfs_b"
 
+# Verified boot (see doc/security.md). Production images REQUIRE this
+# switch (they refuse to build without it); it needs a populated key store
+# (scripts/eicke-gen-keys.sh -> EICKE_KEYS_DIR, default /yocto/keys).
+# On x86 also set the Secure Boot knobs below (values for BOOT_GPG_* come
+# from your key store's sb-user/keys.conf).
+#EICKE_VERIFIED_BOOT = "1"
+#UEFI_SELOADER = "1"
+#GRUB_SIGN_VERIFY = "0"
+#BOOT_GPG_NAME = "BOOT-SecureCore"
+#BOOT_GPG_PASSPHRASE = "<from sb-user/keys.conf>"
+# qemu bring-up escape hatch: build eicke-image-prod WITHOUT verified boot
+# (prints a warning; never use for a releasable image).
+#EICKE_ALLOW_UNVERIFIED_PROD = "1"
+
 # Install the kernel into the rootfs (/boot/bzImage) so an A/B rootfs update
 # also updates the kernel; GRUB loads the kernel from the active rootfs.
 
