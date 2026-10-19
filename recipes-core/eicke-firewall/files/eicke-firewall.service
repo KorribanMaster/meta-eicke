@@ -1,0 +1,19 @@
+[Unit]
+Description=Load nftables firewall ruleset
+# The ruleset must be in place before networkd configures any interface, so
+# no window exists where an interface is up and unfiltered:
+# sysinit -> this unit -> network-pre.target -> systemd-networkd.
+DefaultDependencies=no
+Wants=network-pre.target
+Before=network-pre.target
+After=systemd-sysctl.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/nftables.conf
+ExecReload=/usr/sbin/nft -f /etc/nftables.conf
+ExecStop=/usr/sbin/nft flush ruleset
+
+[Install]
+WantedBy=sysinit.target
