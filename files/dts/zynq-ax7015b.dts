@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ALINX AX7015B: AC7015B core board (XC7Z015-2CLG485, 1 GiB DDR3, 8 GB eMMC,
+ * 32 MiB QSPI flash) on the AX7015B carrier.
+ *
+ * PS peripherals only: the PL is not configured at boot, so the PL Ethernet
+ * port, HDMI, the PL LEDs/keys and the EMIO I2C buses (I2C0/1) are absent.
+ *
+ * One file for both U-Boot (copied to arch/arm/dts) and Linux (copied to
+ * arch/arm/boot/dts/xilinx); each tree ships its own zynq-7000.dtsi. DDR,
+ * clocks and the MIO muxing are set up by ps7_init in U-Boot SPL, hence no
+ * pinctrl nodes. MIO assignment (reference design ps_config.tcl):
+ *   1..6 QSPI, 7 PHY reset, 8 USB PHY reset (hog), 10 SD card detect,
+ *   12..13 UART1, 16..27 GEM0 RGMII, 28..39 USB0 ULPI, 40..45 SD0 (microSD),
+ *   46..51 SD1 (eMMC, 4 bit), 52..53 GEM0 MDIO.
+ */
+/dts-v1/;
+#include "zynq-7000.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	model = "ALINX AX7015B";
+	compatible = "alinx,ax7015b", "xlnx,zynq-7000";
+
+	aliases {
+		ethernet0 = &gem0;
+		mmc0 = &sdhci0;
+		mmc1 = &sdhci1;
+		serial0 = &uart1;
+		spi0 = &qspi;
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x40000000>;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	/* USB3320C ULPI transceiver; its reset is the MIO8 hog below. */
+	usb_phy0: phy0 {
+		compatible = "usb-nop-xceiv";
+		#phy-cells = <0>;
+	};
+};
+
+&clkc {
+	ps-clk-frequency = <33333333>;
+};
+
+/*
+ * USB3320C reset (OTG_RESETN, MIO8, active low) released as soon as the GPIO
+ * controller probes. As reset-gpios of the usb-nop-xceiv it is only released
+ * in the controller's PHY init, right before ChipIdea's own reset, when the
+ * ULPI clock is not running yet: ci_hdrc then fails silently at boot (a manual
+ * rebind later works).
+ */
+&gpio0 {
+	usb-phy-reset-hog {
+		gpio-hog;
+		gpios = <8 GPIO_ACTIVE_LOW>;
+		output-low;
+		line-name = "usb-phy-reset";
+	};
+};
+
+/*
+ * JL2121 (newer boards) or KSZ9031 (older ones) at MDIO address 1, reset on
+ * MIO7 (active low). The RGMII delays are strapped in the PHY. No JL2121
+ * driver exists upstream; the generic PHY driver handles it.
+ */
+&gem0 {
+	status = "okay";
+	phy-mode = "rgmii-id";
+	phy-handle = <&ethernet_phy>;
+
+	ethernet_phy: ethernet-phy@1 {
+		reg = <1>;
+		reset-gpios = <&gpio0 7 GPIO_ACTIVE_LOW>;
+		reset-assert-us = <10000>;
+		reset-deassert-us = <30000>;
+	};
+};
+
+&qspi {
+	bootph-all;
+	status = "okay";
+	num-cs = <1>;
+
+	flash@0 {
+		/* W25Q256 on current boards; probed by JEDEC ID. */
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <50000000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+	};
+};
+
+/* microSD on the carrier: boot device, eicke A/B disk. */
+&sdhci0 {
+	bootph-all;
+	status = "okay";
+};
+
+/* 8 GB eMMC on the core board (not bootable by the Zynq-7000 boot ROM). */
+&sdhci1 {
+	status = "okay";
+	bus-width = <4>;
+	non-removable;
+	disable-wp;
+};
+
+/* Console: CP2102 USB-UART on the carrier. */
+&uart1 {
+	bootph-all;
+	status = "okay";
+};
+
+/* Host only: four ports behind a USB2514 hub. */
+&usb0 {
+	status = "okay";
+	dr_mode = "host";
+	usb-phy = <&usb_phy0>;
+};

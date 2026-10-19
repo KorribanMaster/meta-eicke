@@ -1,7 +1,8 @@
 #!/bin/sh
 # Resolve the eicke A/B partitions on the disk the running system booted from.
 #
-# The A/B contract names its GPT partitions esp/rootfs_a/rootfs_b/data, but a
+# The A/B contract names its GPT partitions esp/rootfs_a/rootfs_b/data (on MBR
+# disks: partitions 1..4 in that order, see part_name), but a
 # board can carry a second disk with the same names (e.g. a vendor install on
 # the eMMC next to our SD card), so a lookup by name alone (PARTLABEL=,
 # /dev/disk/by-partlabel/) may hit the wrong disk. The bootloader therefore
@@ -29,9 +30,22 @@ boot_disk() {
     [ -n "$_majmin" ] && readlink -f "/sys/dev/block/$_majmin/.."
 }
 
-# GPT partition name of a sysfs partition dir
+# A/B name of a sysfs partition dir: its GPT partition name. An MBR disk has
+# no partition names (the Zynq-7000 boot ROM needs MBR, eicke-ab-zynq-sd.wks.in);
+# there the layout's fixed order applies: p1 esp, p2 rootfs_a, p3 rootfs_b,
+# p4 data. Only when no partition of the disk has a name, so a GPT disk is
+# never matched by number.
 part_name() {
-    sed -n 's/^PARTNAME=//p' "$1/uevent"
+    _name="$(sed -n 's/^PARTNAME=//p' "$1/uevent")"
+    if [ -z "$_name" ] && ! grep -qs '^PARTNAME=' "${1%/*}"/*/uevent; then
+        case "$(cat "$1/partition")" in
+            1) _name=esp ;;
+            2) _name=rootfs_a ;;
+            3) _name=rootfs_b ;;
+            4) _name=data ;;
+        esac
+    fi
+    echo "$_name"
 }
 
 disk="$(boot_disk)"

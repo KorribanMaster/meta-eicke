@@ -74,4 +74,6 @@ are described as well.
   - [qemuimx8mp-evk](./machines/qemuimx8mp-evk.md) (i.MX 8M Plus + Cortex-M7
     remoteproc / RustAmp),
   - [ccimx8mn-dvk](./machines/ccimx8mn-dvk.md) (Digi ConnectCore 8M Nano DVK,
-    microSD A/B + Cortex-M7 / RustAmp)
+    microSD A/B + Cortex-M7 / RustAmp),
+  - [ax7015b](./machines/ax7015b.md) (ALINX AX7015B, Zynq-7000, microSD A/B,
+    U-Boot SPL)

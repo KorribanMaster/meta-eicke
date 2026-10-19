@@ -32,6 +32,21 @@ do_configure:append:qemuimx8mp-evk() {
     install -m 0644 ${UNPACKDIR}/imx8mp-evk-rpmsg-qemu.dts ${S}/arch/arm64/boot/dts/freescale/
 }
 
+# ax7015b (ALINX AX7015B, Zynq-7000): kernel-cache's amd-zynq BSP (KMACHINE in
+# the machine conf) plus the board device tree, shared with U-Boot
+# (files/dts). Copied next to zynq-7000.dtsi; kbuild builds
+# xilinx/<name>.dtb without a Makefile entry.
+COMPATIBLE_MACHINE:ax7015b = "ax7015b"
+FILESEXTRAPATHS:prepend:ax7015b := "${THISDIR}/../../files/dts:"
+SRC_URI:append:ax7015b = " \
+    file://ax7015b.cfg \
+    file://zynq-ax7015b.dts \
+"
+
+do_configure:append:ax7015b() {
+    install -m 0644 ${UNPACKDIR}/zynq-ax7015b.dts ${S}/arch/arm/boot/dts/xilinx/
+}
+
 # Fail the build if any =y of imx8mp-qemu.cfg did not make it into .config.
 # Kconfig silently drops a symbol whose parent menuconfig is off (ARCH_NXP,
 # PINCTRL, REGULATOR all bit us) and kernel_configcheck did not report it;
