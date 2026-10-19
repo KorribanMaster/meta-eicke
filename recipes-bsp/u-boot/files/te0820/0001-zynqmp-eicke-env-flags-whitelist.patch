@@ -1,0 +1,49 @@
+From: Eicke Hecht <eicke.hecht@outlook.de>
+Subject: [PATCH] zynqmp: whitelist the eicke A/B env variables
+
+CFG_ENV_FLAGS_LIST_STATIC is a board-header define (not Kconfig), so it
+cannot be set from a .cfg fragment. Together with CONFIG_ENV_WRITEABLE_LIST
+(set in eicke-te0820.cfg) it restricts which variables may be modified at
+runtime or imported from the attacker-writable uboot.env on the FAT boot
+partition: the eicke A/B state contract (rootdev/ustate/bootcount, see
+doc/images/eicke-update-image.md in meta-eicke), the variables the eicke
+bootcmd sets itself, and what U-Boot core and the ZynqMP board code set at
+boot. Everything else keeps its compiled-in default.
+
+Only applied for the te0820 machine. The ZynqMP counterpart of the ax7015b
+patch for zynq-common.h.
+
+Upstream-Status: Inappropriate [eicke product configuration]
+
+--- a/include/configs/xilinx_zynqmp.h
++++ b/include/configs/xilinx_zynqmp.h
+@@ -198,4 +198,29 @@
+ # error "Disable CONFIG_SPL_SYS_MALLOC_SIMPLE. Full malloc needs to be used"
+ #endif
+ 
++/*
++ * eicke: with CONFIG_ENV_WRITEABLE_LIST only the variables below may be set
++ * at runtime or imported from uboot.env, which lives on the attacker-writable
++ * FAT boot partition. Everything else keeps its compiled-in default (a
++ * bootcmd/bootargs override in uboot.env is ignored). The list holds:
++ *  - the eicke A/B state contract (rootdev/ustate/bootcount);
++ *  - the scratch variables the eicke bootcmd and the commands it runs set
++ *    (slot, rootuuid, bootargs, filesize/fileaddr/fdtaddr);
++ *  - what U-Boot core and the ZynqMP board code set at boot (console, MAC,
++ *    fdtcontroladdr, reset_reason/fdtfile/multiboot, modeboot/bootseq/
++ *    boot_targets, dfu_alt_info for capsule updates, script and bootm
++ *    windows). The board code writes these after the env import, so values
++ *    planted in uboot.env do not survive.
++ */
++#define CFG_ENV_FLAGS_LIST_STATIC					\
++	"rootdev:sw,ustate:dw,bootcount:dw,"				\
++	"slot:dw,rootuuid:sw,bootargs:sw,"				\
++	"filesize:xw,fileaddr:xw,fdtaddr:xw,"				\
++	"stdin:sw,stdout:sw,stderr:sw,ver:sw,fdtcontroladdr:xw,"	\
++	"ethaddr:mw,ethact:sw,serial#:sw,"				\
++	"reset_reason:sw,fdtfile:sw,multiboot:xw,"			\
++	"modeboot:sw,bootseq:dw,boot_targets:sw,dfu_alt_info:sw,"	\
++	"scriptaddr:xw,script_offset_f:xw,script_size_f:xw,"		\
++	"bootm_low:xw,bootm_size:xw"
++
+ #endif /* __XILINX_ZYNQMP_H */

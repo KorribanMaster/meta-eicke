@@ -1,0 +1,140 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Trenz TE0820-02 (XCZU2CG, 1 GiB DDR4) on a TE0703 carrier, PS only.
+ *
+ * One file for U-Boot (arch/arm/dts) and Linux (arch/arm64/boot/dts/xilinx):
+ * both trees ship zynqmp.dtsi and zynqmp-clk-ccf.dtsi with the same labels.
+ * The MIO pin muxing is done by psu_init in SPL (from the Trenz reference
+ * design), so there are no pinctrl nodes here. Peripherals and pins, from the
+ * reference design's TE0820_2CG_1E/1.0 (REV02) board preset:
+ *
+ *   MIO 13-22   SD0, eMMC 8 bit, 1.8 V (reset on MIO 23)
+ *   MIO 24      Ethernet PHY reset (active low)
+ *   MIO 25      USB3320 ULPI PHY reset (active low)
+ *   MIO 30-31   UART0, console
+ *   MIO 38-39   I2C0: Si5338 clock generator (0x70), MAC EEPROM (0x50)
+ *   MIO 46-51   SD1, microSD 4 bit, 3.3 V (no card detect, no write protect)
+ *   MIO 52-63   USB0 ULPI, USB 2.0 host
+ *   MIO 64-77   GEM3 RGMII + MDIO, Marvell 88E151x PHY at address 1
+ *
+ * Not described: the dual-parallel QSPI flash (mainline spi-zynqmp-gqspi has
+ * no parallel mode), I2C1 (EMIO, needs a bitstream) and the Si5338 outputs
+ * (GT and PL reference clocks only; the PS does not use them).
+ */
+
+/dts-v1/;
+
+#include "zynqmp.dtsi"
+#include "zynqmp-clk-ccf.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	model = "Trenz TE0820-02 (XCZU2CG) on TE0703";
+	compatible = "trenz,te0820", "xlnx,zynqmp";
+
+	/*
+	 * mmc0 is the microSD (boot and A/B disk) in U-Boot and Linux, as on
+	 * ax7015b: the eicke bootcmd and env live on mmc 0:1, the slots are
+	 * mmcblk0p2/p3. The eMMC is mmc1.
+	 */
+	aliases {
+		ethernet0 = &gem3;
+		i2c0 = &i2c0;
+		mmc0 = &sdhci1;
+		mmc1 = &sdhci0;
+		nvmem0 = &eeprom;
+		serial0 = &uart0;
+		usb0 = &usb0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	/* REV02: 1 GiB (the 2 GiB REV03 psu_init addresses it unchanged). */
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x0 0x0 0x40000000>;
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&gpio {
+	status = "okay";
+};
+
+&sdhci0 {
+	status = "okay";
+	bus-width = <8>;
+	non-removable;
+	disable-wp;
+	xlnx,mio-bank = <0>;
+};
+
+&sdhci1 {
+	status = "okay";
+	bus-width = <4>;
+	no-1-8-v;
+	broken-cd;
+	disable-wp;
+	xlnx,mio-bank = <1>;
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	/* Factory MAC address at 0xfa (EUI-48). */
+	eeprom: eeprom@50 {
+		compatible = "microchip,24aa025", "atmel,24c02";
+		reg = <0x50>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		eth0_addr: mac-address@fa {
+			reg = <0xfa 0x6>;
+		};
+	};
+};
+
+&gem3 {
+	status = "okay";
+	phy-handle = <&phy0>;
+	phy-mode = "rgmii-id";
+	nvmem-cells = <&eth0_addr>;
+	nvmem-cell-names = "mac-address";
+
+	mdio: mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		phy0: ethernet-phy@1 {
+			reg = <1>;
+			reset-gpios = <&gpio 24 GPIO_ACTIVE_LOW>;
+			reset-assert-us = <10000>;
+			reset-deassert-us = <10000>;
+		};
+	};
+};
+
+/*
+ * USB 2.0 only (ULPI, no GT lane). The glue pulses the ULPI PHY reset. Only
+ * the bus clock, as in the Trenz device tree: zynqmp-clk-ccf.dtsi also
+ * assigns USB3_DUAL_REF, which this design does not set up for USB 3.
+ */
+&usb0 {
+	status = "okay";
+	clock-names = "bus_clk";
+	clocks = <&zynqmp_clk USB0_BUS_REF>;
+	assigned-clocks = <&zynqmp_clk USB0_BUS_REF>;
+	reset-gpios = <&gpio 25 GPIO_ACTIVE_LOW>;
+};
+
+&dwc3_0 {
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "high-speed";
+};

@@ -1,15 +1,16 @@
-# A/B (dual-copy) microSD layout for Zynq-7000 boards booting U-Boot SPL
-# (ax7015b), used with SWUpdate.
+# A/B (dual-copy) microSD layout for Zynq-7000 and Zynq UltraScale+ boards
+# booting U-Boot SPL (ax7015b, te0820), used with SWUpdate.
 #
 #   p1  esp       vfat    64 MiB  boot partition: boot.bin (SPL) + u-boot.img
-#                                 + uboot.env (A/B state)
+#                                 or u-boot.itb + uboot.env (A/B state)
 #   p2  rootfs_a  ext4     1 GiB  active rootfs (populated at build time)
 #   p3  rootfs_b  ext4     1 GiB  standby rootfs (empty; written by SWUpdate)
 #   p4  data      ext4     4 GiB  persistent data / SWUpdate state
 #
 # Same geometry and order as eicke-ab-uboot.wks.in (qemuarm-uboot), but an MBR
 # partition table: the Zynq-7000 boot ROM only finds boot.bin in a FAT
-# partition of an MBR disk, it does not read GPT. MBR has no partition names,
+# partition of an MBR disk, it does not read GPT (the te0820 uses the same
+# layout). MBR has no partition names,
 # so eicke-bootpart maps the slots by partition number (p1..p4 above) on such
 # a disk; U-Boot's `part uuid` and the kernel's root=PARTUUID= work with MBR
 # PARTUUIDs (<disk id>-<nn>). Exactly four partitions keep wic from creating
@@ -17,7 +18,7 @@
 #
 # U-Boot keeps rootdev/ustate/bootcount in uboot.env (CONFIG_ENV_IS_IN_FAT on
 # mmc 0:1) and runs the compiled-in eicke bootcmd, which loads the active
-# slot's /boot/zImage and DTB. Each `part` directive MUST be on a single line.
+# slot's kernel (/boot/zImage or /boot/Image) and DTB. Each `part` directive MUST be on a single line.
 
 bootloader --ptable msdos
 # --no-fstab-update on esp/data: the rootfs /etc/fstab provides these mounts

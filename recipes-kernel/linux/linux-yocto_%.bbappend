@@ -47,6 +47,21 @@ do_configure:append:ax7015b() {
     install -m 0644 ${UNPACKDIR}/zynq-ax7015b.dts ${S}/arch/arm/boot/dts/xilinx/
 }
 
+# te0820 (Trenz TE0820-02, Zynq UltraScale+): kernel-cache's amd-zynqmp BSP
+# (KMACHINE in the machine conf) plus the board device tree, shared with
+# U-Boot (files/dts). Copied next to zynqmp.dtsi; kbuild builds
+# xilinx/<name>.dtb without a Makefile entry.
+COMPATIBLE_MACHINE:te0820 = "te0820"
+FILESEXTRAPATHS:prepend:te0820 := "${THISDIR}/../../files/dts:"
+SRC_URI:append:te0820 = " \
+    file://te0820.cfg \
+    file://zynqmp-te0820.dts \
+"
+
+do_configure:append:te0820() {
+    install -m 0644 ${UNPACKDIR}/zynqmp-te0820.dts ${S}/arch/arm64/boot/dts/xilinx/
+}
+
 # Fail the build if any =y of imx8mp-qemu.cfg did not make it into .config.
 # Kconfig silently drops a symbol whose parent menuconfig is off (ARCH_NXP,
 # PINCTRL, REGULATOR all bit us) and kernel_configcheck did not report it;

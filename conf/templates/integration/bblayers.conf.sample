@@ -22,5 +22,7 @@ BBLAYERS ?= " \
   /workdir/sources/meta-secure-core/meta-tpm2 \
   /workdir/sources/meta-secure-core/meta-encrypted-storage \
   /workdir/sources/meta-freescale \
+  /workdir/sources/meta-arm/meta-arm-toolchain \
+  /workdir/sources/meta-arm/meta-arm \
   /workdir/sources/openembedded-core/../meta-eicke \
   "
