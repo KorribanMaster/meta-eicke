@@ -29,6 +29,10 @@ IMAGE_INSTALL:append = " \
 # base image installs the driver there; see eicke-image.bb).
 IMAGE_INSTALL:append:x86-64 = " zynq-pcie-rproc-ptest zynq-pcie-rproc-kicktool"
 
+# QEMU i.MX 8M Plus: the Linux <-> Cortex-M7 rpmsg echo test
+# (ptest-runner rustamp-m7-echo).
+IMAGE_INSTALL:append:qemuimx8mp-evk = " rustamp-m7-echo-ptest"
+
 # Debug symbols are intentionally NOT bundled (keeps the image curated). For
 # source-level gdb either add  IMAGE_FEATURES += "dbg-pkgs"  (large), or use the
 # wrynose debuginfod feature to fetch symbols on demand. For deeper profiling add

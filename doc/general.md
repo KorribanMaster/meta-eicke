@@ -69,4 +69,6 @@ are described as well.
 - Machines — [`machines/`](./machines/):
   - [qemux86-64](./machines/qemux86-64.md) (incl. how to run & interact),
   - [genericx86-64](./machines/genericx86-64.md),
-  - [qemuarm-uboot](./machines/qemuarm-uboot.md) (ARM32 / U-Boot A/B)
+  - [qemuarm-uboot](./machines/qemuarm-uboot.md) (ARM32 / U-Boot A/B),
+  - [qemuimx8mp-evk](./machines/qemuimx8mp-evk.md) (i.MX 8M Plus + Cortex-M7
+    remoteproc / RustAmp)

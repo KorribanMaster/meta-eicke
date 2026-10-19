@@ -19,6 +19,37 @@ SRC_URI += "file://overlayfs.cfg"
 SRC_URI += "file://hardening.cfg"
 SRC_URI:append:x86-64 = " file://hardening-x86.cfg"
 
+# qemuimx8mp-evk: i.MX 8M Plus drivers on top of the qemuarm64 BSP, and the
+# EVK device tree with the Cortex-M7 remoteproc node (from RustAmp). The
+# .dts is not in the kernel tree, so copy it next to imx8mp-evk.dts; kbuild
+# builds freescale/<name>.dtb without a Makefile entry.
+SRC_URI:append:qemuimx8mp-evk = " \
+    file://imx8mp-qemu.cfg \
+    file://imx8mp-evk-rpmsg-qemu.dts \
+"
+
+do_configure:append:qemuimx8mp-evk() {
+    install -m 0644 ${UNPACKDIR}/imx8mp-evk-rpmsg-qemu.dts ${S}/arch/arm64/boot/dts/freescale/
+}
+
+# Fail the build if any =y of imx8mp-qemu.cfg did not make it into .config.
+# Kconfig silently drops a symbol whose parent menuconfig is off (ARCH_NXP,
+# PINCTRL, REGULATOR all bit us) and kernel_configcheck did not report it;
+# the result was a kernel that boots without console or root device.
+# Registered only for qemuimx8mp-evk, so the other machines' kernel signatures
+# (and their sstate) stay untouched.
+do_eicke_check_fragment() {
+    missing=""
+    for opt in $(grep -E '^CONFIG_[A-Z0-9_]+=y' ${UNPACKDIR}/imx8mp-qemu.cfg); do
+        grep -qx "$opt" ${B}/.config || missing="$missing ${opt%=y}"
+    done
+    [ -z "$missing" ] || bbfatal "imx8mp-qemu.cfg options missing from .config (parent menu off?):$missing"
+}
+python () {
+    if 'qemuimx8mp-evk' in d.getVar('OVERRIDES').split(':'):
+        bb.build.addtask('do_eicke_check_fragment', 'do_compile', 'do_kernel_configme', d)
+}
+
 # NOTE (learned the hard way): user SRC_URI fragments are merged BEFORE the
 # kernel-cache feature fragments, so a =y here loses to a later feature =m
 # (e.g. features/nf_tables/nf_tables.cfg). The nftables pieces the prod

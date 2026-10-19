@@ -33,6 +33,9 @@ IMAGE_INSTALL:append:x86-64 = " \
     zynq-rtu-firmware \
 "
 
+# QEMU i.MX 8M Plus: the RustAmp Cortex-M7 firmware for remoteproc.
+IMAGE_INSTALL:append:qemuimx8mp-evk = " rustamp-m7-echo"
+
 # Bootloader-specific half of the A/B scheme (env seeding, env tooling, boot
 # script/config wiring). x86/EFI machines default to GRUB; qemuarm-uboot sets
 # EICKE_BOOTLOADER = "u-boot" in its machine conf.

@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * i.MX8MP EVK with the Cortex-M7 under Linux remoteproc, for QEMU's
+ * imx8mp-evk machine with the Cortex-M7 AMP boot series.
+ *
+ * Mainline naming (vdev0buffer); no "rsc-table" region, so imx_rproc uses
+ * the firmware's own .resource_table section.
+ */
+#include "imx8mp-evk.dts"
+
+/ {
+	reserved-memory {
+		m7_reserved: m7@80000000 {
+			reg = <0 0x80000000 0 0x1000000>;
+			no-map;
+		};
+
+		vdev0vring0: vdev0vring0@55000000 {
+			reg = <0 0x55000000 0 0x8000>;
+			no-map;
+		};
+
+		vdev0vring1: vdev0vring1@55008000 {
+			reg = <0 0x55008000 0 0x8000>;
+			no-map;
+		};
+
+		vdev0buffer: vdev0buffer@55400000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x55400000 0 0x100000>;
+			no-map;
+		};
+	};
+
+	imx8mp-cm7 {
+		compatible = "fsl,imx8mp-cm7-mmio";
+		clocks = <&clk IMX8MP_CLK_M7_DIV>;
+		mbox-names = "tx", "rx", "rxdb";
+		mboxes = <&mu 0 1>, <&mu 1 1>, <&mu 3 1>;
+		memory-region = <&vdev0buffer>, <&vdev0vring0>, <&vdev0vring1>,
+				<&m7_reserved>;
+		syscon = <&src>;
+		fsl,iomuxc-gpr = <&gpr>;
+		status = "okay";
+	};
+};
+
+/* UART4 belongs to the M7 (debug output). */
+&uart4 {
+	status = "disabled";
+};
