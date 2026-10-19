@@ -11,7 +11,7 @@
 #   imx8mp        qemuimx8mp-evk eicke-image-dev: M7 echo ptest, A/B update,
 #                 confirm on slot B, ptest again
 #   prod-ab       qemuarm-uboot eicke-image-prod with verified boot
-#                 (prod_ab_test.sh; built by it with --build)
+#                 (prod_ab_test.sh --build, always: see below)
 # Serial logs: $BUILDDIR/qemu-serial-<script>.log. Prints one
 # "REG <test> rc=<n>" line per test and exits non-zero if any failed.
 set -u
@@ -41,7 +41,7 @@ imx8mp() {
     rm -f "$ov"
     qdrive ab_imx8mp_slot_a.json env IMAGE=eicke-image-dev KEEP=1 OVERLAY="$ov" \
         M7LOG="$BUILDDIR/m7-uart4-slot-a.log" \
-        "QEMU_EXTRA=-drive\ file=$imx_swu,if=sd,bus=1,format=raw,readonly=on" \
+        SWU="$imx_swu" \
         bash "$imx_run" &&
         qdrive ab_imx8mp_slot_b.json env IMAGE=eicke-image-dev SLOT=rootfs_b \
             KEEP=1 OVERLAY="$ov" M7LOG="$BUILDDIR/m7-uart4-slot-b.log" \
@@ -66,11 +66,10 @@ for t in $tests; do
     imx8mp)
         imx8mp ;;
     prod-ab)
-        if [ $build = 1 ]; then
-            bash "$TESTDIR/prod_ab_test.sh" --build
-        else
-            bash "$TESTDIR/prod_ab_test.sh"
-        fi ;;
+        # Always --build (mostly sstate): any qemuarm-uboot bitbake run
+        # without EICKE_VERIFIED_BOOT sees the prod recipe as skipped and
+        # removes its deployed image as stale.
+        bash "$TESTDIR/prod_ab_test.sh" --build ;;
     *)
         echo "unknown test: $t" >&2
         false ;;

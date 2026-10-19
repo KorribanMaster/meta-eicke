@@ -2,7 +2,7 @@
   {"expect": "login:", "timeout": 900},
   {"send": "root"},
   {"expect": "root@qemuimx8mp-evk:~#", "timeout": 60},
-  {"send": "cat /proc/cmdline; ls -l /dev/eicke/; findmnt -no SOURCE /boot /data"},
+  {"send": "cat /proc/cmdline; ls -l /dev/eicke/; grep -E ' /(boot|data) ' /proc/mounts"},
   {"expect": "eicke.slot=rootfs_a", "timeout": 30},
   {"expect": "root@qemuimx8mp-evk:~#", "timeout": 30},
   {"send": "ptest-runner rustamp-m7-echo; echo PTEST-RC=$?"},
