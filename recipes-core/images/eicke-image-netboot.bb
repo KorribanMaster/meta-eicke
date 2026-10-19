@@ -25,6 +25,7 @@ IMAGE_INSTALL:append = " \
     swupdate \
     swupdate-www \
     swupdate-public-key \
+    eicke-hwrevision \
     efibootmgr \
     eicke-ipxeconfirm \
     eicke-network \

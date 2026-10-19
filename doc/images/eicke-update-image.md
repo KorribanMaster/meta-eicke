@@ -37,6 +37,20 @@ On reboot the bootloader boots the new slot. The `eicke-bootconfirm` service
 then clears `ustate`; if the new slot never reaches that point, the bootcount
 logic rolls back to the previous slot.
 
+## Hardware-compatibility gating
+
+swupdate is built with `CONFIG_HW_COMPATIBILITY=y`: it compares the second
+field of the device's `/etc/hwrevision` (shipped by `eicke-hwrevision` as the
+bitbake `MACHINE`) against the `hardware-compatibility` list in the bundle's
+sw-description (expanded from `@@MACHINE@@`). A bundle built for another
+machine is refused before anything is written.
+
+**Migration**: a swupdate binary from after this change rejects *older*
+bundles (they carry no `hardware-compatibility` attribute), while older
+binaries silently ignore the new attribute. So when updating a fielded
+device, new-style bundles install fine on old systems — but once a device
+runs the new image, only new-style bundles are accepted.
+
 ## The A/B state contract
 
 Exactly three mutable variables cross the trust boundary between userspace and

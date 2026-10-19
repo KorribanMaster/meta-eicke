@@ -23,6 +23,12 @@ software =
     version = "1.0";
     description = "Eicke A/B rootfs update (dev)";
 
+    /* Must list the target's /etc/hwrevision revision (the bitbake MACHINE,
+     * shipped by eicke-hwrevision; @@MACHINE@@ expanded by the swupdate
+     * class): swupdate refuses this bundle on any other machine. Required
+     * now that our defconfig sets CONFIG_HW_COMPATIBILITY=y. */
+    hardware-compatibility: [ "@@MACHINE@@" ];
+
     /* Picks the standby slot from the running slot and points the bootloader at
      * it (ustate=1 marks it "to test"; bootcount=0 arms the grub A/B fallback).
      * Adjacent string literals are concatenated by libconfig. */

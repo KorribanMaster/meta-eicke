@@ -12,6 +12,7 @@ IMAGE_INSTALL:append = " \
     swupdate \
     swupdate-www \
     swupdate-public-key \
+    eicke-hwrevision \
     kernel-image \
     e2fsprogs-mke2fs \
     util-linux-blkid \

@@ -27,6 +27,12 @@ software =
     version = "1.0";
     description = "Eicke iPXE A/B bootloader update (netboot)";
 
+    /* Must list the target's /etc/hwrevision revision (the bitbake MACHINE,
+     * shipped by eicke-hwrevision; @@MACHINE@@ expanded by the swupdate
+     * class): swupdate refuses this bundle on any other machine. Required
+     * now that our defconfig sets CONFIG_HW_COMPATIBILITY=y. */
+    hardware-compatibility: [ "@@MACHINE@@" ];
+
     /* swupdate is compiled with the GRUB bootenv backend (shared build with
      * the rootfs A/B images) and would otherwise try to persist its
      * transaction/state markers in a grubenv that does not exist on this

@@ -10,6 +10,9 @@
 #   * GRUBENV_PATH points at the ESP (mounted at /boot) -> /boot/EFI/BOOT/grubenv.
 #   * Local updates only: Mongoose web server + Lua/raw/script handlers; no
 #     CURL/DOWNLOAD/SURICATTA (no hawkBit).
+#   * HW_COMPATIBILITY on: every image ships /etc/hwrevision (eicke-hwrevision)
+#     and every sw-description lists the matching machine, so a bundle built
+#     for another machine is rejected before anything is written.
 #
 # Regenerate authoritatively with `bitbake -c menuconfig swupdate` if needed.
 #
@@ -26,11 +29,16 @@ CONFIG_HAVE_DOT_CONFIG=y
 # the swupdate bbappend, so systemd doesn't time out waiting for readiness.)
 CONFIG_DEFAULT_CONFIG_FILE="/etc/swupdate.cfg"
 CONFIG_SCRIPTS=y
-# No hardware-revision gating: this is a generic x86 image with no
-# /etc/hwrevision. With HW_COMPATIBILITY compiled in, swupdate hard-fails
-# parsing when that file is absent. Re-enable + ship /etc/hwrevision for
-# production board gating.
-# CONFIG_HW_COMPATIBILITY is not set
+# Hardware-revision gating: refuse a .swu whose sw-description
+# hardware-compatibility list does not contain this device's revision (second
+# field of /etc/hwrevision, shipped by the eicke-hwrevision recipe as the
+# bitbake MACHINE). Contract: with this compiled in, swupdate hard-fails when
+# /etc/hwrevision is absent or a sw-description carries no
+# hardware-compatibility -- so ALL images install eicke-hwrevision and ALL
+# sw-descriptions list "@@MACHINE@@". Pre-change bundles (no
+# hardware-compatibility attribute) are rejected by the new binary; old
+# binaries silently ignore the new attribute.
+CONFIG_HW_COMPATIBILITY=y
 CONFIG_SW_VERSIONS_FILE="/etc/sw-versions"
 
 #
