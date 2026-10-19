@@ -11,7 +11,7 @@
 # -dtb path. The signed FIT then best-effort-verifies against qemu's key-less
 # runtime DTB, warns, and boots. On real hardware the DTB ships inside the FIT
 # and the key lives in a U-Boot the SoC verified, closing the loop.
-# See doc/verified-boot.md.
+# See doc/security.md.
 #
 # Gated on the eicke-verified-boot distro feature (EICKE_VERIFIED_BOOT=1, see
 # conf/distro/eicke.conf), so a non-verified qemuarm-uboot build is completely

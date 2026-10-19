@@ -56,9 +56,9 @@ are described as well.
   - [Release Procedure](./release-procedure.md)
   - [Contributing](./contribute.md)
 - Security
-  - [Verified boot status & roadmap](./verified-boot.md) (ARM/U-Boot vs x86/GRUB)
-  - [UEFI Secure Boot setup](./secure-boot-setup.md) (eicke-image-prod)
-  - [TPM-sealed /data encryption](./encrypted-data-todo.md) (WIP design + remaining work)
+  - [Security](./security.md) — hardening (SSH policy, kernel, sysctls, firewall,
+    update gating), the verified-boot chains incl. UEFI Secure Boot setup, and
+    the TPM-sealed /data encryption status (WIP)
 - Images — [`images/`](./images/):
   - [eicke-image](./images/eicke-image.md),
   - [eicke-image-dev](./images/eicke-image-dev.md) (debug tools),

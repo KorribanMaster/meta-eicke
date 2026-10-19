@@ -7,7 +7,8 @@
 # non-SB base flow.
 #
 # Run from the Yocto build env (after `. ./setup-environment`), with KVM
-# available. Pre-build once:  ./build-netboot-prod.sh
+# available. Pre-build once: `bitbake eicke-image-netboot-prod ovmf` with the
+# verified-boot knobs from local.conf.sample (EICKE_VERIFIED_BOOT=1 etc.).
 #
 # Interact:  ssh -p $SSH root@localhost      (key auth; prod creds active)
 # Update:    curl -F filename=@<...>.swu http://localhost:$SWU/upload
@@ -45,7 +46,7 @@ WIC="$DEPLOY/eicke-image-netboot-prod-${MACHINE_DIR}.rootfs.wic"
 UKI="eicke-netboot-prod-uki.efi"
 for f in "$WIC" "$DEPLOY/$UKI" "$DEPLOY/ovmf.secboot.code.qcow2" "$DEPLOY/ovmf.vars.qcow2" \
          "$KEYS/PK.crt" "$KEYS/KEK.crt" "$KEYS/DB.crt"; do
-    [ -f "$f" ] || { echo "missing: $f (run ./build-netboot-prod.sh first / mount /keys)" >&2; exit 1; }
+    [ -f "$f" ] || { echo "missing: $f (build eicke-image-netboot-prod + ovmf first / mount the key store)" >&2; exit 1; }
 done
 
 mkdir -p "$SIM"

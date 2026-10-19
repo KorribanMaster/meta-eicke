@@ -94,7 +94,7 @@ the compiled-in `bootcmd` rolls back to A automatically (`ustate=3`).
   it also ships a **signed kernel FIT** (`/boot/fitImage`, booted via the
   compiled-in `bootcmd`) — the ARM analog of the x86 signed boot chain
   (runtime signature enforcement deferred under qemu; see
-  [verified-boot](../verified-boot.md)). The TPM/LUKS wiring stays x86-only
+  [security](../security.md)). The TPM/LUKS wiring stays x86-only
   (meta-secure-core is UEFI-only). Log in via SSH
   (`ssh -p 2222 root@127.0.0.1` under runqemu slirp) — serial login needs the
   real root password from the credentials file. The netboot variants remain

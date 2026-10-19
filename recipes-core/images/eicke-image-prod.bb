@@ -11,7 +11,7 @@ LICENSE = "MIT"
 # ARM (qemuarm-uboot) -> signed kernel FIT. The verified-boot composition below
 # is gated on ${EICKE_VBOOT}; without the switch this is a hardened-but-not-
 # verified prod image. The TPM/LUKS bits stay :x86-64 (meta-secure-core is
-# UEFI-only). See doc/verified-boot.md.
+# UEFI-only). See doc/security.md.
 COMPATIBLE_MACHINE = "qemux86-64|genericx86-64|qemuarm-uboot"
 
 require recipes-core/images/eicke-image.bb

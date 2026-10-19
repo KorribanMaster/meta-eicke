@@ -6,7 +6,7 @@ image's cpio.gz + fixed cmdline, see eicke-netboot-prod-uki) that the firmware's
 LoadImage verifies. A custom /init mounts the plain /data partition and lays a \
 persistent /etc overlay on it before systemd starts. Credentials/SSH hardening \
 shared with eicke-image-prod (eicke-prod-hardening.inc). Build with \
-EICKE_SECURE_BOOT=1 (see build-netboot-prod.sh)."
+EICKE_VERIFIED_BOOT=1 (see doc/security.md)."
 LICENSE = "MIT"
 
 # iPXE/UEFI netboot is x86-only.

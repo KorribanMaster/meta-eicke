@@ -98,5 +98,6 @@ Start at [`doc/general.md`](doc/general.md) (index). Highlights:
   [qemux86-64](doc/machines/qemux86-64.md) (incl. how to run & interact),
   [genericx86-64](doc/machines/genericx86-64.md),
   [qemuarm-uboot](doc/machines/qemuarm-uboot.md) (ARM32 / U-Boot A/B)
-- Security — [Secure Boot setup](doc/secure-boot-setup.md),
-  [TPM-sealed /data encryption](doc/encrypted-data-todo.md) (WIP)
+- Security — [doc/security.md](doc/security.md): hardening (SSH, kernel,
+  sysctls, firewall, update gating), the verified-boot chains incl. UEFI
+  Secure Boot setup, and the TPM-sealed /data encryption status (WIP)

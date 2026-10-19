@@ -5,15 +5,18 @@ following [eicke-image-prod]'s hardening: the firmware verifies **iPXE** directl
 (signed with our UEFI db key), iPXE chains a **signed UKI** (kernel + rootfs +
 cmdline in one signed PE) that the firmware's `LoadImage` verifies, and a custom
 `/init` gives the RAM rootfs persistence via a `/etc` overlay on the plain
-on-disk `/data` partition. Credentials/SSH hardening is shared with
-`eicke-image-prod` via `eicke-prod-hardening.inc`.
+on-disk `/data` partition. Credentials, key-only SSH, hardening sysctls and
+the default-deny nftables firewall are shared with `eicke-image-prod` via
+`eicke-prod-hardening.inc` — see [doc/security.md](../security.md).
 
 - **Recipes:** `recipes-core/images/eicke-image-netboot-prod.bb` (image),
   `recipes-core/images/eicke-netboot-prod-uki.bb` (signed UKI),
   `recipes-extended/images/eicke-update-image-netboot-prod.bb` (.swu)
-- **Build:** `./build-netboot-prod.sh` (sets `EICKE_SECURE_BOOT=1`,
-  MACHINE=qemux86-64; includes the `cleansstate grubenv` hack needed when the
-  build dir previously did non-SB builds)
+- **Build:** `bitbake eicke-image-netboot-prod` with the verified-boot knobs
+  from `local.conf.sample` (`EICKE_VERIFIED_BOOT = "1"` etc., see
+  [doc/security.md](../security.md)); MACHINE=qemux86-64. If the build dir
+  previously did non-SB builds, run `bitbake -c cleansstate grubenv grub-efi`
+  once (grubenv deploy collision).
 - **Artifacts:** `tmp/deploy/images/<machine>/`
   - `eicke-image-netboot-prod-<machine>.rootfs.wic` — disk (signed iPXE ESP + data)
   - `eicke-netboot-prod-uki.efi` — the signed UKI the netboot server serves

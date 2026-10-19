@@ -30,22 +30,35 @@ generated file following the instructions in the sample (hash with
 `openssl passwd -6`, escape every `$` as `\$`), or delete it and re-source the
 init script for a fresh random pair.
 
-SSH is hardened accordingly: key authentication via a deployed ed25519 key in
-`/etc/ssh/authorized_keys.d/<user>`, `PermitRootLogin prohibit-password`.
+SSH is hardened accordingly: **key-only** authentication via a deployed
+ed25519 key in `/etc/ssh/authorized_keys.d/<user>` —
+`PasswordAuthentication no`, `KbdInteractiveAuthentication no`,
+`PermitRootLogin prohibit-password`. Local console (getty) password login
+still works; the passwords above are for the console.
 
 ## Hardening vs the base image
 
 - **UEFI Secure Boot** — signed chain shim → SELoader → grub → kernel from
   meta-secure-core, ESP populated from the rootfs's `/boot/efi` via
   `eicke-ab-prod.wks.in`. Setup, key generation (`/yocto/keys/sb-user`) and
-  QEMU verification: [doc/secure-boot-setup.md](../secure-boot-setup.md).
+  QEMU verification: [doc/security.md](../security.md).
 - **Read-only rootfs** with a persistent **`/etc` overlay** on the `data`
   partition (`overlayfs-etc` preinit); `/var` stays volatile, with a tmpfs over
   `/var/lib/systemd` for services using `StateDirectory=`.
 - **Minimal kernel modules** — drops the catch-all `kernel-modules`, keeps the
   product NIC/GPU/remoteproc modules.
 - **Encrypted `/data` (LUKS2, TPM2-sealed)** — implemented but not yet active;
-  design and remaining work: [doc/encrypted-data-todo.md](../encrypted-data-todo.md).
+  design and remaining work: [doc/security.md](../security.md).
+- **Hardening sysctls** (`eicke-sysctl-hardening`) and a **default-deny
+  nftables firewall** (`eicke-firewall`, only SSH 22 + SWUpdate 8080 open) —
+  see [doc/security.md](../security.md).
+- **Verified boot is mandatory**: without `EICKE_VERIFIED_BOOT=1` the recipe
+  is skipped (`Nothing PROVIDES 'eicke-image-prod'`). For qemu bring-up
+  without a key store set `EICKE_ALLOW_UNVERIFIED_PROD = "1"` (build warns;
+  never releasable).
+- **SWUpdate hardware gating**: `/etc/hwrevision` (`eicke-hwrevision`) +
+  `hardware-compatibility` in every sw-description — a bundle built for
+  another machine is refused.
 
 ## Update an A/B device with the prod image
 
