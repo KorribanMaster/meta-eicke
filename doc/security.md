@@ -120,9 +120,9 @@ before anything is written. Migration semantics:
     cat /etc/hwrevision                       # -> eicke qemux86-64
     swupdate -H eicke:bogus -i <bundle>.swu   # -> refused (HW compatibility)
 
-End-to-end check of all of the above on qemux86-64: `hardening_test.sh` at
-the workspace root (boots the prod wic via runqemu, drives it over SSH with
-`test-ssh-key`; build with `EICKE_SSH_PUBKEY` set to `test-ssh-key.pub`).
+End-to-end check of all of the above on qemux86-64:
+`scripts/test/hardening_test.sh` (boots the prod wic via runqemu, drives it
+over SSH with the test key; see [testing](testing.md)).
 
 ## Verified boot
 

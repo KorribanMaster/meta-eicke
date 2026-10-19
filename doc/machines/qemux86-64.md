@@ -63,5 +63,5 @@ automatically.
 
 - Without `/dev/kvm`, drop `kvm` from the command line; QEMU falls back to (much
   slower) software emulation.
-- An unattended driver for the full boot → update → reboot → verify cycle lives
-  in the build workspace as `qdrive.py` + `ab_test.json`.
+- An unattended driver for the full boot → update → reboot → rollback cycle:
+  `scripts/test/regression.sh x86-ab` (see [testing](../testing.md)).

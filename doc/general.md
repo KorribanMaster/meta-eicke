@@ -53,6 +53,7 @@ are described as well.
   - TODO Continuous Integration
   - TODO Yocto Configuration Guidance
   - [Application Development](./application-development.md)
+  - [Testing](./testing.md) — the QEMU regression run and the prod-image tests
   - [Release Procedure](./release-procedure.md)
   - [Contributing](./contribute.md)
 - Security

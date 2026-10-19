@@ -1,0 +1,17 @@
+[
+  {"expect": "Eicke Linux \\(rootfs_a\\)", "timeout": 120},
+  {"expect": "login:", "timeout": 600},
+  {"send": "root"},
+  {"expect": "root@qemuarm-uboot:~#", "timeout": 60},
+  {"send": "fw_setenv bootcmd 'echo PWNED && sleep 1000' && fw_setenv rootdev 'rootfs_a init=/bin/sh' && echo ATTACK-ARMED"},
+  {"expect": "ATTACK-ARMED", "timeout": 30},
+  {"send": "reboot"},
+  {"expect": "Eicke Linux \\(rootfs_a\\)", "timeout": 300},
+  {"expect": "login:", "timeout": 600},
+  {"send": "root"},
+  {"expect": "root@qemuarm-uboot:~#", "timeout": 60},
+  {"send": "grep -q 'init=' /proc/cmdline && echo CMDLINE-INJECTED || echo CMDLINE-CLEAN"},
+  {"expect": "CMDLINE-CLEAN", "timeout": 30},
+  {"send": "poweroff"},
+  {"expect": "Power down|System halted|reboot: Power", "timeout": 120}
+]
