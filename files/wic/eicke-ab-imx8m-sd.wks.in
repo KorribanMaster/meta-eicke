@@ -1,0 +1,27 @@
+# A/B (dual-copy) microSD layout for i.MX 8M boards booting Digi/NXP U-Boot
+# (ccimx8mn-dvk), used with SWUpdate.
+#
+#   raw       imx-boot  SPL + DDR firmware + ATF + U-Boot at ${IMX_BOOT_SEEK} KiB
+#                       (32 KiB on the 8M Nano, read by the boot ROM)
+#   p1  esp       vfat    64 MiB  boot partition: uboot.env (A/B state)
+#   p2  rootfs_a  ext4     1 GiB  active rootfs (populated at build time)
+#   p3  rootfs_b  ext4     1 GiB  standby rootfs (empty; written by SWUpdate)
+#   p4  data      ext4     4 GiB  persistent data / SWUpdate state
+#
+# Same geometry, labels and part-names as eicke-ab-uboot.wks.in (qemuarm-uboot),
+# so the shared fstab (/dev/eicke/esp -> /boot) and the SWUpdate sw-description Lua
+# work unchanged; only p1 starts at 8 MiB to stay clear of imx-boot.
+#
+# U-Boot keeps rootdev/ustate/bootcount in uboot.env (CONFIG_ENV_IS_IN_FAT on
+# the boot device) and runs the compiled-in eicke bootcmd, which loads the
+# active slot's /boot/Image and DTB/overlays. Each `part` directive MUST be on
+# a single line.
+
+bootloader --ptable gpt
+part u-boot --source rawcopy --sourceparams="file=imx-boot" --no-table --align ${IMX_BOOT_SEEK}
+# --no-fstab-update on esp/data: the rootfs /etc/fstab provides these mounts
+# itself (see eicke-image.bb), consistently in every A/B slot.
+part /boot --source bootimg-partition --label esp --part-name esp --fstype=vfat --active --align 8192 --size 64 --use-uuid --no-fstab-update
+part / --source rootfs --label ${ROOTFS_A_LABEL} --part-name rootfs_a --fstype=ext4 --align 1024 --fixed-size 1024 --use-uuid
+part --label ${ROOTFS_B_LABEL} --part-name rootfs_b --fstype=ext4 --align 1024 --fixed-size 1024 --use-uuid
+part /data --label data --part-name data --fstype=ext4 --align 1024 --fixed-size 4096 --use-uuid --no-fstab-update

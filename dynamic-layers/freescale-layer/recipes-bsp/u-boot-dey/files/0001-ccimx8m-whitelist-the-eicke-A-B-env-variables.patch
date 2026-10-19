@@ -1,0 +1,77 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eicke Hecht <eicke.hecht@gmail.com>
+Date: Sat, 17 Oct 2026 23:28:52 +0200
+Subject: [PATCH] ccimx8m: whitelist the eicke A/B env variables
+
+CFG_ENV_FLAGS_LIST_STATIC is a board-header define (not Kconfig), so it
+cannot be set from a .cfg fragment. Together with CONFIG_ENV_WRITEABLE_LIST
+(set in eicke-env-fat-ccimx8mn.cfg) it restricts which variables may be
+modified at runtime or imported from the attacker-writable uboot.env on the
+FAT boot partition: the eicke A/B state contract (rootdev/ustate/bootcount,
+see doc/images/eicke-update-image.md in meta-eicke), the variables the eicke
+bootcmd assigns itself before use, and the ones U-Boot core and Digi's board
+code set at boot. Digi's write-once ("o") entries become writeable ("w"),
+which is what ENV_WRITEABLE_LIST requires for the board code to set them.
+
+Upstream-Status: Inappropriate [eicke product configuration]
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ include/configs/ccimx8m_common.h | 43 +++++++++++++++++++++-----------
+ 1 file changed, 29 insertions(+), 14 deletions(-)
+
+diff --git a/include/configs/ccimx8m_common.h b/include/configs/ccimx8m_common.h
+index 96ddcee8..970d86b1 100644
+--- a/include/configs/ccimx8m_common.h
++++ b/include/configs/ccimx8m_common.h
+@@ -268,22 +268,37 @@
+ /* Partition defines */
+ #define RECOVERY_PARTITION	"2"
+ 
+-/* protected environment variables (besides ethaddr and serial#) */
++/*
++ * eicke: with CONFIG_ENV_WRITEABLE_LIST (eicke-env-fat-ccimx8mn.cfg) only the
++ * variables below may be set at runtime or imported from uboot.env, which
++ * lives on the attacker-writable FAT boot partition. Everything else keeps
++ * its compiled-in default (a bootcmd/bootargs override in uboot.env is
++ * ignored). The list holds:
++ *  - the eicke A/B state contract (rootdev/ustate/bootcount);
++ *  - the scratch variables the eicke bootcmd and the commands it runs set
++ *    (slot, rootuuid, overlays, load addresses, bootargs,
++ *    filesize/fileaddr/fdtaddr);
++ *  - what U-Boot core and Digi's board code set at boot (console, MACs,
++ *    fdtcontroladdr, SOC/module/carrier identification, mmcbootdev). The
++ *    board code writes these after the env import, so values planted in
++ *    uboot.env do not survive.
++ * Digi's original list protected some of these as write-once ("o"), which
++ * ENV_WRITEABLE_LIST would turn into "never writable".
++ */
+ #undef CFG_ENV_FLAGS_LIST_STATIC
+ #define CFG_ENV_FLAGS_LIST_STATIC	\
+-	"wlanaddr:mc,"			\
+-	"wlan1addr:mc,"			\
+-	"wlan2addr:mc,"			\
+-	"wlan3addr:mc,"			\
+-	"btaddr:mc,"			\
+-	"bootargs_once:sr,"		\
+-	"board_version:so,"		\
+-	"board_id:so,"			\
+-	"mmcbootdev:so,"		\
+-	"hwid_0:so,"			\
+-	"hwid_1:so,"			\
+-	"hwid_2:so,"			\
+-	"drm_ic:so,"
++	"rootdev:sw,ustate:sw,bootcount:sw,"			\
++	"slot:sw,rootuuid:sw,eicke_ovl:sw,som_hv:sw,ov:sw,"	\
++	"kernel_addr_r:sw,fdt_addr_r:sw,fdtov_addr_r:sw,"	\
++	"bootargs:sw,filesize:sw,fileaddr:sw,fdtaddr:sw,"	\
++	"stdin:sw,stdout:sw,stderr:sw,ver:sw,fdtcontroladdr:sw,"	\
++	"ethaddr:mw,eth1addr:mw,ethact:sw,serial#:sw,"		\
++	"wlanaddr:mw,wlan1addr:mw,wlan2addr:mw,wlan3addr:mw,btaddr:mw,"	\
++	"board_version:sw,board_id:sw,mmcbootdev:sw,"		\
++	"hwid_0:sw,hwid_1:sw,hwid_2:sw,drm_ic:sw,"		\
++	"soc_rev:sw,soc_type:sw,module_variant:sw,module_ram:sw,"	\
++	"som_overlays:sw,parts_linux:sw,parts_linux_dualboot:sw,"	\
++	"netretry:sw,verifyaddr:sw"
+ 
+ #define FSL_FASTBOOT_FB_DEV "mmc"
+ 

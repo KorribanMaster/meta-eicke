@@ -36,6 +36,11 @@ IMAGE_INSTALL:append:x86-64 = " \
 # QEMU i.MX 8M Plus: the RustAmp Cortex-M7 firmware for remoteproc.
 IMAGE_INSTALL:append:qemuimx8mp-evk = " rustamp-m7-echo"
 
+# Digi ccimx8mn-dvk: the M7 firmware, and the DTB + overlays in each slot's
+# /boot, where U-Boot's compiled-in bootcmd loads them from (per-slot, like
+# the kernel).
+IMAGE_INSTALL:append:ccimx8mn-dvk = " rustamp-m7-echo kernel-devicetree"
+
 # Bootloader-specific half of the A/B scheme (env seeding, env tooling, boot
 # script/config wiring). x86/EFI machines default to GRUB; qemuarm-uboot sets
 # EICKE_BOOTLOADER = "u-boot" in its machine conf.

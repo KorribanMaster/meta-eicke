@@ -71,4 +71,6 @@ are described as well.
   - [genericx86-64](./machines/genericx86-64.md),
   - [qemuarm-uboot](./machines/qemuarm-uboot.md) (ARM32 / U-Boot A/B),
   - [qemuimx8mp-evk](./machines/qemuimx8mp-evk.md) (i.MX 8M Plus + Cortex-M7
-    remoteproc / RustAmp)
+    remoteproc / RustAmp),
+  - [ccimx8mn-dvk](./machines/ccimx8mn-dvk.md) (Digi ConnectCore 8M Nano DVK,
+    microSD A/B + Cortex-M7 / RustAmp)

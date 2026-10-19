@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * eicke: enable the ccimx8mn Cortex-M7 for Linux remoteproc (imx_rproc) with
+ * the memory layout of the RustAmp rpmsg echo firmware
+ * (RustAmp examples/imx8mn-m7-echo, TCM build): vrings at 0x55000000 and
+ * 0x55008000, rpmsg buffer pool at 0x55400000, resource table at
+ * 0x550ff000. Replaces Digi's ccimx8mn_cm7.dtso, whose vrings and table sit
+ * at 0xb8000000 (beyond the RAM of the 512 MiB/1 GiB SOMs).
+ * The "rsc-table" region must be exactly where the firmware links its
+ * .resource_table: imx_rproc copies the table into this region and updates
+ * it there (vdev status), and the firmware polls its own copy. It is in DDR
+ * because the A53 cannot access the TCMs while the M7 runs.
+ * The firmware code runs from ITCM/DTCM, so no DDR carve-out is needed for it.
+ * The buffer pool node must be named vdev0buffer (rproc_find_carveout_by_name).
+ * UART4 is disabled for Linux: NXP's TF-A RDC config grants it to the M7
+ * domain only (Digi patches that out of their TF-A, we use meta-freescale's
+ * unpatched), so the A53 probing it takes a synchronous external abort.
+ * The M7 core clock is claimed for imx_rproc (as the QEMU DT does with
+ * IMX8MP_CLK_M7_DIV): Digi's node has no clocks, so Linux gates arm_m7_core
+ * as unused late in boot, and loading the firmware into the TCMs then
+ * stalls the bus and freezes the whole SoC.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/imx8mn-clock.h>
+
+/ {
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			overlay-description = "eicke: Cortex-M7 remoteproc for RustAmp";
+			reserved-memory {
+				#address-cells = <2>;
+				#size-cells = <2>;
+
+				vdev0vring0: vdev0vring0@55000000 {
+					reg = <0 0x55000000 0 0x8000>;
+					no-map;
+				};
+
+				vdev0vring1: vdev0vring1@55008000 {
+					reg = <0 0x55008000 0 0x8000>;
+					no-map;
+				};
+
+				/* The firmware links its resource table here (see
+				 * the rustamp-m7-echo DDR resource table patch):
+				 * the A53 cannot reach the TCMs while the M7 runs. */
+				rsc_table: rsc-table@550ff000 {
+					reg = <0 0x550ff000 0 0x1000>;
+					no-map;
+				};
+
+				vdev0buffer: vdev0buffer@55400000 {
+					compatible = "shared-dma-pool";
+					reg = <0 0x55400000 0 0x100000>;
+					no-map;
+				};
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&imx8mn_cm7>;
+		__overlay__ {
+			memory-region = <&vdev0buffer>, <&vdev0vring0>, <&vdev0vring1>,
+				<&rsc_table>;
+			clocks = <&clk IMX8MN_CLK_M7_CORE>;
+			status = "okay";
+		};
+	};
+
+	fragment@2 {
+		target = <&uart4>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+};

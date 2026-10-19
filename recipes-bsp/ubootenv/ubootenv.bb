@@ -11,7 +11,7 @@ eicke-bootconfirm."
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
-COMPATIBLE_MACHINE = "qemuarm-uboot|qemuimx8mp-evk"
+COMPATIBLE_MACHINE = "qemuarm-uboot|qemuimx8mp-evk|ccimx8mn-dvk"
 PACKAGE_ARCH = "${MACHINE_ARCH}"
 
 DEPENDS = "u-boot-mkenvimage-native"
@@ -21,6 +21,8 @@ DEPENDS = "u-boot-mkenvimage-native"
 # fw_printenv/fw_setenv (and swupdate) ever reads the env.
 EICKE_UBOOTENV_BASE ?= "${DEPLOY_DIR_IMAGE}/u-boot-initial-env"
 EICKE_UBOOTENV_BASE:qemuimx8mp-evk = ""
+# With UBOOT_CONFIG set, u-boot.inc deploys the env per config type only.
+EICKE_UBOOTENV_BASE:ccimx8mn-dvk = "${DEPLOY_DIR_IMAGE}/u-boot-initial-env-sd"
 do_compile[depends] += "${@'u-boot:do_deploy' if d.getVar('EICKE_UBOOTENV_BASE') else ''}"
 
 inherit deploy

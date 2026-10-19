@@ -99,7 +99,9 @@ Start at [`doc/general.md`](doc/general.md) (index). Highlights:
   [genericx86-64](doc/machines/genericx86-64.md),
   [qemuarm-uboot](doc/machines/qemuarm-uboot.md) (ARM32 / U-Boot A/B),
   [qemuimx8mp-evk](doc/machines/qemuimx8mp-evk.md) (i.MX 8M Plus + Cortex-M7
-  remoteproc / RustAmp)
+  remoteproc / RustAmp),
+  [ccimx8mn-dvk](doc/machines/ccimx8mn-dvk.md) (Digi ConnectCore 8M Nano DVK,
+  microSD A/B + Cortex-M7 / RustAmp; needs meta-freescale)
 - Security — [doc/security.md](doc/security.md): hardening (SSH, kernel,
   sysctls, firewall, update gating), the verified-boot chains incl. UEFI
   Secure Boot setup, and the TPM-sealed /data encryption status (WIP)
