@@ -68,22 +68,23 @@ IMAGE_INSTALL:append:x86-64 = " kernel-module-r8169 kernel-module-i915"
 # reboots while the rootfs itself stays read-only. /var stays volatile (tmpfs).
 IMAGE_FEATURES:append = " read-only-rootfs overlayfs-etc"
 
-# The preinit runs before udev, so the device must be resolvable by the util-linux
-# mount via a blkid scan (no /dev/disk/by-* symlinks yet). The data partition has
-# ext4 label "data", so LABEL=data works; a raw node (/dev/sdaN) would not be
-# portable across qemu (vdaN) and hardware (sdaN).
+# The preinit runs before udev (no /dev/eicke or /dev/disk/by-* links yet), and
+# LABEL=data could match a second disk's data partition. So the device is looked
+# up at runtime by eicke-bootpart (sysfs only: the "data" partition on the disk
+# holding /), via shell command substitution: the class pastes this value
+# unquoted into the preinit's mount command, after /proc and /sys are mounted.
 OVERLAYFS_ETC_MOUNT_POINT = "/data"
 OVERLAYFS_ETC_FSTYPE = "ext4"
-OVERLAYFS_ETC_DEVICE = "LABEL=data"
+OVERLAYFS_ETC_DEVICE = "$(${libexecdir}/eicke-bootpart data)"
 OVERLAYFS_ETC_MOUNT_OPTIONS = "defaults"
 OVERLAYFS_ETC_USE_ORIG_INIT_NAME = "1"
 
-# The base image adds a "LABEL=data /data" line to /etc/fstab. With the overlay
+# The base image adds a "/dev/eicke/data /data" line to /etc/fstab. With the overlay
 # preinit already mounting /data at early boot, that fstab entry would be a second
 # mount of the same device on the same point. Drop just the /data line for prod
 # (keep the ESP /boot line). Runs after the base's fstab_add_eicke_mounts.
 eicke_prod_drop_data_fstab() {
-    sed -i '/^LABEL=data[[:space:]]/d' ${IMAGE_ROOTFS}${sysconfdir}/fstab
+    sed -i '\#^/dev/eicke/data[[:space:]]#d' ${IMAGE_ROOTFS}${sysconfdir}/fstab
 }
 ROOTFS_POSTPROCESS_COMMAND += "eicke_prod_drop_data_fstab;"
 

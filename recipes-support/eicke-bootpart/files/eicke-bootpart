@@ -1,0 +1,65 @@
+#!/bin/sh
+# Resolve the eicke A/B partitions on the disk the running system booted from.
+#
+# The A/B contract names its GPT partitions esp/rootfs_a/rootfs_b/data, but a
+# board can carry a second disk with the same names (e.g. a vendor install on
+# the eMMC next to our SD card), so a lookup by name alone (PARTLABEL=,
+# /dev/disk/by-partlabel/) may hit the wrong disk. The bootloader therefore
+# passes root=PARTUUID=<uuid of the slot it booted>, and everything else is
+# looked up here: on the disk that holds the mounted root filesystem only.
+# Pure sysfs + /proc, no udev, so it also works in the overlayfs-etc preinit.
+#
+#   eicke-bootpart <name>            print /dev/<node> of partition <name>
+#   eicke-bootpart --name-of <node>  print the A/B name of <node> (e.g.
+#                                    mmcblk1p2) if it is one of ours on the
+#                                    boot disk; used by 61-eicke-bootpart.rules
+# Exit status 1 if there is no such partition.
+
+usage() {
+    echo "usage: $0 <esp|rootfs_a|rootfs_b|data> | --name-of <node>" >&2
+    exit 2
+}
+
+# sysfs directory of the disk holding "/" (e.g. .../block/mmcblk1)
+boot_disk() {
+    _majmin=""
+    while read -r _id _parent _dev _root _mnt _rest; do
+        [ "$_mnt" = / ] && _majmin="$_dev"
+    done < /proc/self/mountinfo
+    [ -n "$_majmin" ] && readlink -f "/sys/dev/block/$_majmin/.."
+}
+
+# GPT partition name of a sysfs partition dir
+part_name() {
+    sed -n 's/^PARTNAME=//p' "$1/uevent"
+}
+
+disk="$(boot_disk)"
+[ -d "$disk" ] || exit 1
+
+case "$1" in
+    --name-of)
+        [ -n "$2" ] || usage
+        part="$(readlink -f "/sys/class/block/$2")"
+        [ "${part%/*}" = "$disk" ] || exit 1
+        name="$(part_name "$part")"
+        case "$name" in
+            esp|rootfs_a|rootfs_b|data) echo "$name" ;;
+            *) exit 1 ;;
+        esac
+        ;;
+    esp|rootfs_a|rootfs_b|data)
+        for part in "$disk"/*/partition; do
+            part="${part%/partition}"
+            [ -d "$part" ] || continue
+            if [ "$(part_name "$part")" = "$1" ]; then
+                echo "/dev/${part##*/}"
+                exit 0
+            fi
+        done
+        exit 1
+        ;;
+    *)
+        usage
+        ;;
+esac

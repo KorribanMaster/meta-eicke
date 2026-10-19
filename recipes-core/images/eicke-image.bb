@@ -20,6 +20,7 @@ IMAGE_INSTALL:append = " \
     kernel-modules \
     eicke-network \
     eicke-bootconfirm \
+    eicke-bootpart \
     python3 \
     python3-modules \
 "
@@ -41,12 +42,14 @@ require recipes-core/images/eicke-ab-${EICKE_BOOTLOADER}.inc
 # Mount the ESP at /boot (so swupdate + the confirm service can read/write the
 # grubenv) and the data partition, in the image's OWN fstab. This must live in
 # the rootfs (not wic's per-partition fstab patch) so EVERY A/B slot has it —
-# including images swupdate writes raw to a standby slot. Mount by filesystem
-# LABEL (set by the .wks --label, stable across A/B raw writes of the rootfs).
+# including images swupdate writes raw to a standby slot. Mount via
+# /dev/eicke/<name> (eicke-bootpart's udev links: the partition of that GPT
+# name on the disk we booted from), not by LABEL= or PARTLABEL=, which can
+# match a same-named partition on a second disk (e.g. an eMMC install).
 fstab_add_eicke_mounts() {
     cat >> ${IMAGE_ROOTFS}${sysconfdir}/fstab <<EOF
-LABEL=esp            /boot                vfat       defaults,sync         0  2
-LABEL=data           /data                ext4       defaults              0  2
+/dev/eicke/esp       /boot                vfat       defaults,sync         0  2
+/dev/eicke/data      /data                ext4       defaults              0  2
 EOF
 }
 ROOTFS_POSTPROCESS_COMMAND += "fstab_add_eicke_mounts;"

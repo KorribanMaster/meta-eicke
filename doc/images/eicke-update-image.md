@@ -20,7 +20,7 @@ A `.swu` is a cpio stream containing, in order:
 
 The `sw-description` embeds a Lua hook (`eicke_set_standby`) that picks the
 **standby** slot automatically at install time: it reads the running slot from
-`/proc/cmdline` (`root=PARTLABEL=rootfs_X`), writes the new rootfs to the *other*
+`/proc/cmdline` (`eicke.slot=rootfs_X`), writes the new rootfs to the *other*
 slot, and sets grubenv (`rootdev=<standby>`, `ustate=1`, `bootcount=0`). Because
 no selection is required, the **same bundle installs both ways**:
 
@@ -32,6 +32,17 @@ swupdate -i eicke-update-image-<machine>.rootfs.swu && reboot
 curl -F filename=@eicke-update-image-<machine>.rootfs.swu http://<target>:8080/upload
 # then reboot from the web UI or `reboot`
 ```
+
+The standby slot is written through `/dev/eicke/<slot>`, not
+`/dev/disk/by-partlabel/`. A board may carry a second disk whose GPT has the
+same partition names (the ccimx8mn DVK's eMMC with a vendor A/B install, for
+example), and a by-name lookup can then resolve to that disk. `eicke-bootpart`
+(`recipes-support/eicke-bootpart`) and its udev rule create `/dev/eicke/{esp,
+rootfs_a,rootfs_b,data}` only for partitions on the disk that holds the
+running root. For the same reason every bootloader passes
+`root=PARTUUID=<slot partition>` (resolved from its own boot disk) plus
+`eicke.slot=`, the fstab mounts `/dev/eicke/esp` and `/dev/eicke/data`, and the
+prod overlayfs-etc preinit resolves `/data` with `eicke-bootpart data`.
 
 On reboot the bootloader boots the new slot. The `eicke-bootconfirm` service
 then clears `ustate`; if the new slot never reaches that point, the bootcount

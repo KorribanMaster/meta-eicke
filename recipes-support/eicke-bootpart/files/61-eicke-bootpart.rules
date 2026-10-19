@@ -1,0 +1,6 @@
+# /dev/eicke/{esp,rootfs_a,rootfs_b,data}: the eicke A/B partitions on the disk
+# the system booted from (see eicke-bootpart). Unlike /dev/disk/by-partlabel/
+# these never point at a same-named partition on another disk. Used by fstab
+# and by the SWUpdate hook to pick the standby slot.
+ACTION!="remove", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", \
+    PROGRAM="/usr/libexec/eicke-bootpart --name-of %k", SYMLINK+="eicke/%c"

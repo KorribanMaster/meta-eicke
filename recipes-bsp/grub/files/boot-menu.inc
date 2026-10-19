@@ -51,5 +51,9 @@ menuentry "Eicke Linux (${rootdev})" --unrestricted {
     # signature (/boot/bzImage.sig) using the embedded public key.
     regexp --set=1:bootdrive '^([^,]+),' "${root}"
     set root="${bootdrive},gpt${slot}"
-    linux /boot/bzImage root=PARTLABEL=${rootdev} rootwait console=ttyS0,115200 console=tty0
+    # root by PARTUUID of that partition, not by GPT name: another disk may
+    # carry a same-named rootfs_a/rootfs_b. eicke.slot tells userspace (the
+    # SWUpdate hook) which slot this is.
+    probe --set=rootuuid --part-uuid "${root}"
+    linux /boot/bzImage root=PARTUUID=${rootuuid} eicke.slot=${rootdev} rootwait console=ttyS0,115200 console=tty0
 }

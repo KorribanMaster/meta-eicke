@@ -9,7 +9,7 @@
  *
  * The standby slot is selected AUTOMATICALLY at install time by the embedded
  * Lua hook (`eicke_set_standby`): it reads the slot the system is running from
- * (kernel cmdline `root=PARTLABEL=rootfs_X`), writes the rootfs to the OTHER
+ * (kernel cmdline `eicke.slot=rootfs_X`), writes the rootfs to the OTHER
  * slot, and points the bootloader (grubenv) at it. No `-e` selection is needed,
  * so the same bundle installs via the SWUpdate web interface AND the CLI:
  *
@@ -33,7 +33,11 @@ software =
      * now that our defconfig sets CONFIG_HW_COMPATIBILITY=y. */
     hardware-compatibility: [ "@@MACHINE@@" ];
 
-    /* Picks the standby slot from the running slot and points the bootloader at
+    /* /dev/eicke/<slot> (udev, eicke-bootpart) is the slot partition on the
+     * disk we booted from; /dev/disk/by-partlabel/ could name a same-named
+     * partition on another disk (e.g. a vendor install on the eMMC).
+     *
+     * Picks the standby slot from the running slot and points the bootloader at
      * it (ustate=1 marks it "to test"; bootcount=0 arms the grub A/B fallback).
      * Adjacent string literals are concatenated by libconfig. */
     embedded-script = "function eicke_current_slot()\n"
@@ -42,7 +46,7 @@ software =
         "  if f then\n"
         "    local c = f:read('*a') or ''\n"
         "    f:close()\n"
-        "    slot = string.match(c, 'root=PARTLABEL=(rootfs_[ab])')\n"
+        "    slot = string.match(c, 'eicke%.slot=(rootfs_[ab])')\n"
         "  end\n"
         "  if not slot then slot = swupdate.get_bootenv('rootdev') end\n"
         "  if slot ~= 'rootfs_a' and slot ~= 'rootfs_b' then slot = 'rootfs_a' end\n"
@@ -52,7 +56,7 @@ software =
         "  local cur = eicke_current_slot()\n"
         "  local standby = 'rootfs_b'\n"
         "  if cur == 'rootfs_b' then standby = 'rootfs_a' end\n"
-        "  image.device = '/dev/disk/by-partlabel/' .. standby\n"
+        "  image.device = '/dev/eicke/' .. standby\n"
         "  swupdate.set_bootenv('rootdev', standby)\n"
         "  swupdate.set_bootenv('ustate', '1')\n"
         "  swupdate.set_bootenv('bootcount', '0')\n"
@@ -65,7 +69,7 @@ software =
             filename = "eicke-image-prod@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
             /* Overridden by the hook to the standby slot; a valid default keeps
              * the parser happy if the hook is ever skipped. */
-            device   = "/dev/disk/by-partlabel/rootfs_b";
+            device   = "/dev/eicke/rootfs_b";
             type     = "raw";
             hook     = "eicke_set_standby";
             /* Stream straight to the target device. Without this swupdate

@@ -35,7 +35,7 @@ runqemu eicke-image wic ovmf nographic kvm slirp
 
 - **Login:** at the `qemux86-64 login:` prompt log in as `root` (empty password;
   the template's `EXTRA_IMAGE_FEATURES` allow empty-password root login).
-- **Which slot am I on?** `cat /proc/cmdline` → `root=PARTLABEL=rootfs_a` (or `_b`).
+- **Which slot am I on?** `cat /proc/cmdline` → `eicke.slot=rootfs_a` (or `_b`).
 - **Boot state:** `grub-editenv /boot/EFI/BOOT/grubenv list`.
 - **Quit QEMU:** `poweroff` inside the guest, or press `Ctrl-a x` to kill it.
 
@@ -52,7 +52,7 @@ runqemu eicke-image wic ovmf nographic kvm slirp \
 # in the guest (booted on slot A -> the hook auto-selects standby slot B):
 swupdate -i /dev/vda
 reboot
-# after reboot: cat /proc/cmdline  ->  root=PARTLABEL=rootfs_b
+# after reboot: cat /proc/cmdline  ->  eicke.slot=rootfs_b
 ```
 
 The `eicke-bootconfirm` service then accepts slot B (`ustate=0`), so subsequent

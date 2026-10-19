@@ -6,7 +6,7 @@
 #   p4  data      ext4     4 GiB  persistent data / SWUpdate state
 #
 # Same geometry, labels and part-names as eicke-ab.wks.in (x86/GRUB), so the
-# shared fstab (LABEL=esp -> /boot) and the SWUpdate sw-description Lua work
+# shared fstab (/dev/eicke/esp -> /boot) and the SWUpdate sw-description Lua work
 # unchanged. p1 keeps the "esp" label even though it is a plain FAT partition.
 #
 # U-Boot reads rootdev/ustate/bootcount from uboot.env (CONFIG_ENV_IS_IN_FAT)

@@ -50,7 +50,7 @@ MACHINE=qemuarm-uboot runqemu eicke-image wic nographic slirp
 
 - **Login:** as `root` (empty password; the template's `EXTRA_IMAGE_FEATURES`
   allow empty-password root login).
-- **Which slot am I on?** `cat /proc/cmdline` → `root=PARTLABEL=rootfs_a` (or `_b`).
+- **Which slot am I on?** `cat /proc/cmdline` → `eicke.slot=rootfs_a` (or `_b`).
 - **Boot state:** `fw_printenv rootdev ustate bootcount` (reads
   `/boot/uboot.env` via `/etc/fw_env.config`).
 - **Quit QEMU:** `poweroff` in the guest, or `Ctrl-a x`.
@@ -68,7 +68,7 @@ MACHINE=qemuarm-uboot runqemu eicke-image wic nographic slirp \
 # in the guest (booted on slot A -> the hook auto-selects standby slot B):
 swupdate -i /dev/vdb
 reboot
-# after reboot: cat /proc/cmdline  ->  root=PARTLABEL=rootfs_b
+# after reboot: cat /proc/cmdline  ->  eicke.slot=rootfs_b
 ```
 
 The `eicke-bootconfirm` service then accepts slot B (`ustate=0`, via
