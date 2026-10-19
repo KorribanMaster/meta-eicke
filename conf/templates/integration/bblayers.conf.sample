@@ -21,5 +21,6 @@ BBLAYERS ?= " \
   /workdir/sources/meta-secure-core/meta-efi-secure-boot \
   /workdir/sources/meta-secure-core/meta-tpm2 \
   /workdir/sources/meta-secure-core/meta-encrypted-storage \
+  /workdir/sources/meta-freescale \
   /workdir/sources/openembedded-core/../meta-eicke \
   "
