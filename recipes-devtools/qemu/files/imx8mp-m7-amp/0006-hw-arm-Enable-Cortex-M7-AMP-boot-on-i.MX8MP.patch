@@ -1,0 +1,535 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Gaurav Sharma <gaurav.sharma_7@nxp.com>
+Date: Mon, 6 Jul 2026 21:58:58 +0530
+Subject: [PATCH 6/8] hw/arm: Enable Cortex-M7 AMP boot on i.MX8MP
+
+Configure the i.MX8MP to boot the Cortex-M7 core alongside
+the Cortex-A53 cores in an Asymmetric Multiprocessing (AMP)
+configuration. The M7 firmware can be loaded and started from Linux
+running on the A53 cores via the remoteproc framework.
+
+CM7 boot is made optional. A GPR IRQ is connected to a cpuwait handler.
+The handler translates the CPUWAIT into STOP and RUN.It follows the
+classic Cortex-M boot sequence: initial SP and reset vector taken from
+the vector table.
+
+Signed-off-by: Gaurav Sharma <gaurav.sharma_7@nxp.com>
+Message-Id: <20260706162859.3361063-7-gaurav.sharma_7@nxp.com>
+
+Upstream-Status: Submitted [https://patchew.org/QEMU/20260706162859.3361063-1-gaurav.sharma._5F7@nxp.com/]
+
+Rebased onto QEMU 10.2: there the A53s are still created in
+fsl_imx8mp_init(), so that loop is kept (bounded to the 4 A53s) instead
+of the series' move to realize; docs conflict resolved.
+---
+ docs/system/arm/imx8mp-evk.rst | 186 ++++++++++++++++++++++++++++++++-
+ hw/arm/fsl-imx8mp.c            | 152 ++++++++++++++++++++++++---
+ hw/arm/imx8mp-evk.c            |   2 +
+ include/hw/arm/fsl-imx8mp.h    |  13 ++-
+ 4 files changed, 334 insertions(+), 19 deletions(-)
+
+diff --git a/docs/system/arm/imx8mp-evk.rst b/docs/system/arm/imx8mp-evk.rst
+index b8214033..abeffafc 100644
+--- a/docs/system/arm/imx8mp-evk.rst
++++ b/docs/system/arm/imx8mp-evk.rst
+@@ -10,6 +10,7 @@ Supported devices
+ The ``imx8mp-evk`` machine implements the following devices:
+ 
+  * Up to 4 Cortex-A53 cores
++ * 1 Cortex-M7 core (``imx8mp-evk`` only)
+  * Generic Interrupt Controller (GICv3)
+  * 4 UARTs
+  * 3 USDHC Storage Controllers
+@@ -34,6 +35,187 @@ Boot options
+ The ``imx8mp-evk`` machine can start a Linux kernel directly using the standard
+ ``-kernel`` functionality.
+ 
++
++Asymmetric Multiprocessing (AMP) Boot Recipe (``imx8mp-evk`` only)
++''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
++
++The ``imx8mp-evk`` machine includes a Cortex-M7 core alongside the
++Cortex-A53 cores, enabling Asymmetric Multiprocessing (AMP). The M7
++firmware can be loaded from Linux using the remoteproc framework.
++
++There are 2 control paths for Cortex-M7 on iMX8MP:-
++1. Firmware-mediated (via SMC/ATF)
++2. MMIO driven path (via SRC and GPR access)
++
++``fsl,imx8mp-cm7-mmio`` exists specifically to select the MMIO path and avoid dependence on firmware interfaces that aren’t guaranteed in qemu.
++This mode uses the SRC syscon block and the IOMUXC GPR for start/stop control.
++
++Memory carveouts for resource table, vrings need to be specified in the ``imx8mp-evk-rpmsg.dts``.
++Follow this application note to make the necessary changes - https://www.nxp.com/docs/en/application-note/AN5317.pdf
++
++When Linux boots CM7 via remoteproc, the typical flow is:
++
++1. Linux booted with imx8mp-evk-rpmsg.dtb
++2. Linux loads the CM7 ELF into a reserved DDR region
++3. Linux toggles the CM7 start/stop control (SRC/GPR CPUWAIT, etc.)
++4. CM7 starts executing from that DDR entry
++
++
++Prerequisites
++~~~~~~~~~~~~~
++
++To manually test Cortex-M7 firmware loading from Linux, the following
++components are needed:
++
++1. Linux kernel configuration to enable i.MX remoteproc support.
++2. ``imx8mp-evk-rpmsg.dtb`` -  device tree that enables the Cortex-M7 remoteproc node, reserves DDR memory regions
++   for the Cortex-M7 firmware, resource table,vrings and buffers.
++3. A Cortex-M7 ELF firmware image linked to execute from DDR.
++
++NXP application note AN5317 describes the required remoteproc and reserved-memory setup
++for loading Cortex-M firmware from Linux.
++
++
++Linux kernel configuration
++~~~~~~~~~~~~~~~~~~~~~~~~~~
++
++The guest kernel needs remoteproc support. On official linux-imx kernels, this support is enabled by default.
++When using Buildroot, verify that the kernel configuration enables the remoteproc and rpmsg options needed by the
++i.MX remoteproc driver, for example:
++
++.. code-block:: none
++
++  CONFIG_REMOTEPROC=y
++  CONFIG_IMX_REMOTEPROC=y
++  CONFIG_RPMSG=y
++  CONFIG_VIRTIO_RPMSG_BUS=y
++  CONFIG_RPMSG_CHAR=y
++
++Depending on the kernel version and configuration, some options may be selected
++automatically by the i.MX remoteproc driver.
++
++
++
++Device tree preparation
++~~~~~~~~~~~~~~~~~~~~~~~
++
++1. Refer to ``9.1 i.MX Linux rproc support`` of application note AN5317 to add the
++   following nodes in ``imx8mp-evk-rpmsg.dts`` :-
++
++   m7_ddr_alias
++   m7_itcm
++   m7_dtcm
++
++2. Modify the compatible string of ``imx8mp-cm7`` node from ``fsl,imx8mn-cm7`` to ``fsl,imx8mp-cm7-mmio``
++3. Add the following properties to the ``imx8mp-cm7`` node :-
++
++   ``syscon = <&src>;``
++   ``fsl,iomuxc-gpr = <&gpr>;``
++
++   These references are needed by imx_rproc_mmio_detect_mode in i.MX remoteproc driver
++   for M7 boot mode detection.
++
++
++   Build ``imx8mp-evk-rpmsg.dtb`` from the above dts changes.
++
++
++
++Building a Cortex-M7 ELF firmware
++~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++
++A simple manual test is the MCUXpresso SDK UART polling example for the i.MX8MP
++EVK. It prints to a UART and is therefore easy to observe from QEMU.
++
++1. Follow this guide to set up MCUXpresso SDK for i.MX8MPEVK :- MCUXSDKIMX8MPGSUG[https://share.google/qD4D09FCkkydTurqp]
++2. Build a DDR-linked Cortex-M7 ELF using the ARM GNU toolchain from the MCUXpresso SDK:-
++
++
++.. code-block:: bash
++
++  $ cd ${MCUX_SDK}/boards/evkmimx8mp/driver_examples/uart/polling/armgcc
++  $ ./build_ddr_release.sh
++
++As a result, ``iuart_polling_cm7.elf`` will be generated  in ``ddr_release`` folder.
++
++Boot qemu i.MX8MP EVK machine with the updated linux kernel and ``imx8mp-evk-rpmsg.dtb``
++
++3. Copy the ``iuart_polling_cm7.elf`` to ``/lib/firmware/`` path inside iMX8MPEVK qemu emulation.
++
++
++Serial ports (UARTs)
++''''''''''''''''''''
++
++The i.MX 8M Plus EVK model provides four UARTs. QEMU connects each UART to a
++host character backend using the ``-serial`` option. This option can be used
++multiple times to create and wire multiple serial ports.
++
++The ``-serial`` options are positional:
++
++* the 1st ``-serial ...`` maps to ``serial0`` (UART1)
++* the 2nd ``-serial ...`` maps to ``serial1`` (UART2)
++* the 3rd ``-serial ...`` maps to ``serial2`` (UART3)
++* the 4th ``-serial ...`` maps to ``serial3`` (UART4)
++
++Example usage:- To enable serial console for the official M7 mcuxpresso sdk driver example - driver_examples/uart/polling which uses UART4, use:-
++
++.. code-block:: bash
++
++  -serial null -serial stdio -serial null -serial pty:/tmp/imx8mp-uart4
++
++This will create a symlink /tmp/imx8mp-uart4 pointed to the allocated PTY. On a different tab the console for UART4 can be opened using the following:-
++
++.. code-block:: bash
++
++  $ screen /tmp/imx8mp-uart4 115200
++
++
++Starting QEMU for Cortex-M7 remoteproc testing
++~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++
++1. Execute the following command to start i.MX8MPEVK emulation:-
++
++.. code-block:: bash
++
++  $ qemu-system-aarch64 -M imx8mp-evk \
++      -display none -serial null -serial stdio -serial null -serial /tmp/imx8mp-uart4 \
++      -kernel Image \
++      -dtb imx8mp-evk-rpmsg.dtb \
++      -append "root=/dev/mmcblk2p2" \
++      -drive file=sdcard.img,if=sd,bus=2,format=raw,id=mmcblk2
++
++2. On a new tab execute the following to open a console:-
++
++.. code-block:: bash
++
++  $ screen /tmp/imx8mp-uart4 115200
++
++3. Execute the following commands inside emulation to load the firmware elf:-
++
++.. code-block:: bash
++
++   $ echo iuart_polling_cm7.elf > /sys/class/remoteproc/remoteproc0/firmware
++   $ echo start > /sys/class/remoteproc/remoteproc0/state
++
++
++On the tab where the console is opened, you will observe the UART logs. The characters
++typed from the keyboard will echo on the console.
++
++
++Note:-
++
++Only DDR-linked bare-metal ELF images are currently supported by QEMU
++emulation. If the firmware is linked for a vector table base address other than
++``0x80000000``, configure the Cortex-M7 vector base using the SoC property
++``cm7-vector-base``:-
++
++.. code-block:: bash
++
++  -global fsl-imx8mp.cm7-vector-base=0x80000000
++
++If this property is not provided, QEMU uses ``0x80000000`` by default.
++
++
++
+ Direct Linux Kernel Boot
+ ''''''''''''''''''''''''
+ 
+@@ -58,8 +240,8 @@ Now that everything is prepared the machine can be started as follows:
+ 
+ .. code-block:: bash
+ 
+-  $ qemu-system-aarch64 -M imx8mp-evk -smp 4 -m 3G \
+-      -display none -serial null -serial stdio \
++  $ qemu-system-aarch64 -M imx8mp-evk -m 3G \
++      -display none -serial null -serial stdio -serial null -serial /tmp/imx8mp-uart4 \
+       -kernel Image \
+       -dtb imx8mp-evk.dtb \
+       -append "root=/dev/mmcblk2p2" \
+diff --git a/hw/arm/fsl-imx8mp.c b/hw/arm/fsl-imx8mp.c
+index 42faec83..7fe61950 100644
+--- a/hw/arm/fsl-imx8mp.c
++++ b/hw/arm/fsl-imx8mp.c
+@@ -22,6 +22,8 @@
+ #include "qapi/error.h"
+ #include "qobject/qlist.h"
+ 
++#define IMX8MP_NUM_A53 4
++
+ static const struct {
+     hwaddr addr;
+     size_t size;
+@@ -198,11 +200,15 @@ static void fsl_imx8mp_init(Object *obj)
+     const char *cpu_type = ms->cpu_type ?: ARM_CPU_TYPE_NAME("cortex-a53");
+     int i;
+ 
+-    for (i = 0; i < MIN(ms->smp.cpus, FSL_IMX8MP_NUM_CPUS); i++) {
++    for (i = 0; i < IMX8MP_NUM_A53; i++) {
+         g_autofree char *name = g_strdup_printf("cpu%d", i);
+         object_initialize_child(obj, name, &s->cpu[i], cpu_type);
+     }
+ 
++    s->cm7_booted = false;
++
++    object_initialize_child(obj, "cm7", &s->cm7, TYPE_ARMV7M);
++
+     object_initialize_child(obj, "gic", &s->gic, gicv3_class_name());
+ 
+     object_initialize_child(obj, "ccm", &s->ccm, TYPE_IMX8MP_CCM);
+@@ -276,23 +282,103 @@ static void fsl_imx8mp_init(Object *obj)
+                             TYPE_FSL_IMX8M_PCIE_PHY);
+ }
+ 
++static inline void imx8mp_cm7_halt(CPUState *m7cs)
++{
++    cpu_interrupt(m7cs, CPU_INTERRUPT_HALT);
++    m7cs->halted = 1;
++    qemu_cpu_kick(m7cs);
++}
++
++static inline void imx8mp_cm7_resume(CPUState *m7cs)
++{
++    /* Clear HALT interrupt (from STOP) and resume */
++    cpu_reset_interrupt(m7cs, CPU_INTERRUPT_HALT);
++    m7cs->halted = 0;
++    m7cs->stopped = 0;
++    cpu_resume(m7cs);
++    cpu_interrupt(m7cs, CPU_INTERRUPT_EXITTB);
++    qemu_cpu_kick(m7cs);
++}
++
++static void imx8mp_cm7_ctrl_apply(CPUState *cpu, run_on_cpu_data data)
++{
++    struct CM7CtlReq *r = data.host_ptr;
++    FslImx8mpState *s = r->s;
++    ARMCPU *m7 = s->cm7.cpu;
++    CPUState *m7cs = CPU(m7);
++
++    if (!r->run) {
++        /* STOP: halt the M7 */
++    imx8mp_cm7_halt(m7cs);
++        goto out;
++    }
++
++    /*
++     * RUN:
++     * CPUWAIT is modeled as a run/stop gate. On first RUN, boot from vector
++     * table. Subsequent RUN resumes execution without resetting CM7 state.
++     */
++    if (s->cm7_booted) {
++        imx8mp_cm7_resume(m7cs);
++        goto out;
++    }
++
++    uint32_t msp_le = 0, pc_le = 0;
++    uint32_t msp, pc;
++    hwaddr vbase = s->cm7_vector_base;
++
++    address_space_read(&address_space_memory, vbase,
++                       MEMTXATTRS_UNSPECIFIED, &msp_le, sizeof(msp_le));
++    address_space_read(&address_space_memory, vbase + 4,
++                       MEMTXATTRS_UNSPECIFIED, &pc_le, sizeof(pc_le));
++    msp = le32_to_cpu(msp_le);
++    pc  = le32_to_cpu(pc_le);
++
++
++    /* Clear Thumb indicator bit (bit0) */
++    pc &= ~1u;
++
++    cpu_reset(m7cs);
++
++    /* Set SP (R13) and PC (R15). Cortex-M uses Thumb */
++    m7->env.regs[13] = msp;
++    m7->env.regs[15] = pc;
++    m7->env.thumb = 1;
++
++    imx8mp_cm7_resume(m7cs);
++
++    s->cm7_booted = true;
++out:
++    g_free(r);
++};
++
++static void imx8mp_cm7_cpuwait_handler(void *opaque, int n, int level)
++{
++    FslImx8mpState *s = opaque;
++    (void)n;
++
++    if (!s->cm7.cpu) {
++        return;
++    }
++
++    struct CM7CtlReq *r = g_new0(struct CM7CtlReq, 1);
++    r->s = s;
++    r->run = !!level;
++
++    async_run_on_cpu(CPU(s->cm7.cpu), imx8mp_cm7_ctrl_apply,
++                     RUN_ON_CPU_HOST_PTR(r));
++}
++
+ static void fsl_imx8mp_realize(DeviceState *dev, Error **errp)
+ {
+-    MachineState *ms = MACHINE(qdev_get_machine());
+     FslImx8mpState *s = FSL_IMX8MP(dev);
+     DeviceState *gicdev = DEVICE(&s->gic);
+     int i;
+ 
+-    if (ms->smp.cpus > FSL_IMX8MP_NUM_CPUS) {
+-        error_setg(errp, "%s: Only %d CPUs are supported (%d requested)",
+-                   TYPE_FSL_IMX8MP, FSL_IMX8MP_NUM_CPUS, ms->smp.cpus);
+-        return;
+-    }
+-
+     /* CPUs */
+-    for (i = 0; i < ms->smp.cpus; i++) {
++    for (i = 0; i < IMX8MP_NUM_A53; i++) {
+         /* On uniprocessor, the CBAR is set to 0 */
+-        if (ms->smp.cpus > 1 &&
++        if (IMX8MP_NUM_A53 > 1 &&
+                 object_property_find(OBJECT(&s->cpu[i]), "reset-cbar")) {
+             object_property_set_int(OBJECT(&s->cpu[i]), "reset-cbar",
+                                     fsl_imx8mp_memmap[FSL_IMX8MP_GIC_DIST].addr,
+@@ -335,11 +421,11 @@ static void fsl_imx8mp_realize(DeviceState *dev, Error **errp)
+         QList *redist_region_count;
+         bool pmu = object_property_get_bool(OBJECT(first_cpu), "pmu", NULL);
+ 
+-        qdev_prop_set_uint32(gicdev, "num-cpu", ms->smp.cpus);
++        qdev_prop_set_uint32(gicdev, "num-cpu", IMX8MP_NUM_A53);
+         qdev_prop_set_uint32(gicdev, "num-irq",
+                              FSL_IMX8MP_NUM_IRQS + GIC_INTERNAL);
+         redist_region_count = qlist_new();
+-        qlist_append_int(redist_region_count, ms->smp.cpus);
++        qlist_append_int(redist_region_count, IMX8MP_NUM_A53);
+         qdev_prop_set_array(gicdev, "redist-region-count", redist_region_count);
+         object_property_set_link(OBJECT(&s->gic), "sysmem",
+                                  OBJECT(get_system_memory()), &error_fatal);
+@@ -354,7 +440,7 @@ static void fsl_imx8mp_realize(DeviceState *dev, Error **errp)
+          * maintenance interrupt signal to the appropriate GIC PPI inputs, and
+          * the GIC's IRQ/FIQ interrupt outputs to the CPU's inputs.
+          */
+-        for (i = 0; i < ms->smp.cpus; i++) {
++        for (i = 0; i < IMX8MP_NUM_A53; i++) {
+             DeviceState *cpudev = DEVICE(&s->cpu[i]);
+             int intidbase = FSL_IMX8MP_NUM_IRQS + i * GIC_INTERNAL;
+             qemu_irq irq;
+@@ -384,11 +470,11 @@ static void fsl_imx8mp_realize(DeviceState *dev, Error **errp)
+ 
+             sysbus_connect_irq(gicsbd, i,
+                                qdev_get_gpio_in(cpudev, ARM_CPU_IRQ));
+-            sysbus_connect_irq(gicsbd, i + ms->smp.cpus,
++            sysbus_connect_irq(gicsbd, i + IMX8MP_NUM_A53,
+                                qdev_get_gpio_in(cpudev, ARM_CPU_FIQ));
+-            sysbus_connect_irq(gicsbd, i + 2 * ms->smp.cpus,
++            sysbus_connect_irq(gicsbd, i + 2 * IMX8MP_NUM_A53,
+                                qdev_get_gpio_in(cpudev, ARM_CPU_VIRQ));
+-            sysbus_connect_irq(gicsbd, i + 3 * ms->smp.cpus,
++            sysbus_connect_irq(gicsbd, i + 3 * IMX8MP_NUM_A53,
+                                qdev_get_gpio_in(cpudev, ARM_CPU_VFIQ));
+ 
+             if (kvm_enabled()) {
+@@ -460,6 +546,38 @@ static void fsl_imx8mp_realize(DeviceState *dev, Error **errp)
+     sysbus_mmio_map(SYS_BUS_DEVICE(&s->gpr), 0,
+                     fsl_imx8mp_memmap[FSL_IMX8MP_IOMUXC_GPR].addr);
+ 
++    sysbus_connect_irq(SYS_BUS_DEVICE(&s->gpr), 0,
++                   qemu_allocate_irq(imx8mp_cm7_cpuwait_handler, s, 0));
++
++    /* Realize Cortex-M7 subsystem */
++    {
++        DeviceState *cm7dev = DEVICE(&s->cm7);
++        DeviceState *ccmdev = DEVICE(&s->ccm);
++        qdev_prop_set_string(cm7dev, "cpu-type",
++                             ARM_CPU_TYPE_NAME("cortex-m7"));
++        qdev_prop_set_uint32(cm7dev, "num-irq", 64);
++        qdev_prop_set_bit(cm7dev, "enable-bitband", true);
++
++        /* CM7 vector table base (configurable) */
++        qdev_prop_set_uint32(cm7dev, "init-nsvtor", s->cm7_vector_base);
++
++        /* Connect CM7 clocks from CCM exported outputs */
++        qdev_connect_clock_in(cm7dev, "cpuclk",
++                              qdev_get_clock_out(ccmdev, "cm7_cpuclk"));
++        qdev_connect_clock_in(cm7dev, "refclk",
++                              qdev_get_clock_out(ccmdev, "cm7_refclk"));
++        object_property_set_link(OBJECT(&s->cm7), "memory",
++                                 OBJECT(get_system_memory()), &error_abort);
++
++        if (!sysbus_realize(SYS_BUS_DEVICE(&s->cm7), errp)) {
++            return;
++        }
++
++        CPUState *m7cs = CPU(s->cm7.cpu);
++        cpu_interrupt(m7cs, CPU_INTERRUPT_HALT);
++        m7cs->halted = 1;
++    }
++
+     /* GPTs */
+     object_property_set_int(OBJECT(&s->gpt5_gpt6_irq), "num-lines", 2,
+                             &error_abort);
+@@ -784,6 +902,8 @@ static void fsl_imx8mp_realize(DeviceState *dev, Error **errp)
+ static const Property fsl_imx8mp_properties[] = {
+     DEFINE_PROP_UINT32("fec1-phy-num", FslImx8mpState, phy_num, 0),
+     DEFINE_PROP_BOOL("fec1-phy-connected", FslImx8mpState, phy_connected, true),
++    DEFINE_PROP_UINT32("cm7-vector-base", FslImx8mpState,
++                       cm7_vector_base, 0x80000000),
+ };
+ 
+ static void fsl_imx8mp_class_init(ObjectClass *oc, const void *data)
+diff --git a/hw/arm/imx8mp-evk.c b/hw/arm/imx8mp-evk.c
+index 44e06019..01b3691a 100644
+--- a/hw/arm/imx8mp-evk.c
++++ b/hw/arm/imx8mp-evk.c
+@@ -117,6 +117,8 @@ static void imx8mp_evk_machine_init(MachineClass *mc)
+ {
+     mc->desc = "NXP i.MX 8M Plus EVK Board";
+     mc->init = imx8mp_evk_init;
++    mc->default_cpus = 5;
++    mc->min_cpus = 5;
+     mc->max_cpus = FSL_IMX8MP_NUM_CPUS;
+     mc->default_ram_id = "imx8mp-evk.ram";
+     mc->get_default_cpu_type = imx8mp_evk_get_default_cpu_type;
+diff --git a/include/hw/arm/fsl-imx8mp.h b/include/hw/arm/fsl-imx8mp.h
+index ebe277c7..ffed8434 100644
+--- a/include/hw/arm/fsl-imx8mp.h
++++ b/include/hw/arm/fsl-imx8mp.h
+@@ -10,6 +10,7 @@
+ #define FSL_IMX8MP_H
+ 
+ #include "cpu.h"
++#include "hw/arm/armv7m.h"
+ #include "hw/char/imx_serial.h"
+ #include "hw/gpio/imx_gpio.h"
+ #include "hw/i2c/imx_i2c.h"
+@@ -30,6 +31,7 @@
+ #include "hw/timer/imx_gpt.h"
+ #include "hw/usb/hcd-dwc3.h"
+ #include "hw/watchdog/wdt_imx2.h"
++#include "hw/qdev-clock.h"
+ #include "hw/sysbus.h"
+ #include "qom/object.h"
+ #include "qemu/units.h"
+@@ -43,7 +45,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(FslImx8mpState, FSL_IMX8MP)
+ #define FSL_IMX8MP_MU1_A_IRQ  88
+ 
+ enum FslImx8mpConfiguration {
+-    FSL_IMX8MP_NUM_CPUS         = 4,
++    FSL_IMX8MP_NUM_CPUS         = 5,
+     FSL_IMX8MP_NUM_ECSPIS       = 3,
+     FSL_IMX8MP_NUM_GPIOS        = 5,
+     FSL_IMX8MP_NUM_GPTS         = 6,
+@@ -65,6 +67,10 @@ struct FslImx8mpState {
+     SysBusDevice   parent_obj;
+ 
+     ARMCPU             cpu[FSL_IMX8MP_NUM_CPUS];
++    ARMv7MState        cm7;
++    bool               enable_cm7;
++    bool               cm7_booted;
++    uint32_t           cm7_vector_base;
+     GICv3State         gic;
+     IMX8MPGPCState     gpc;
+     IMX8MPGPRState     gpr;
+@@ -91,6 +97,11 @@ struct FslImx8mpState {
+     bool               phy_connected;
+ };
+ 
++struct CM7CtlReq {
++    FslImx8mpState *s;
++    bool run;
++};
++
+ enum FslImx8mpMemoryRegions {
+     FSL_IMX8MP_A53_DAP,
+     FSL_IMX8MP_AIPS1_CONFIGURATION,

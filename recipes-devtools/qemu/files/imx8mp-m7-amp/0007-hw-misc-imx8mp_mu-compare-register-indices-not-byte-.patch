@@ -1,0 +1,93 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eicke Hecht <eicke.hecht@gmail.com>
+Date: Sat, 17 Oct 2026 02:18:29 +0200
+Subject: [PATCH 7/8] hw/misc/imx8mp_mu: compare register indices, not byte
+ offsets
+
+The read/write handlers compared the byte offset with the register
+index enum (MU_RR0 = 4, MU_SR = 8, MU_CR = 9), so only TR0 worked:
+TR1-3 writes were taken as RR writes and SR/CR accesses were rejected,
+which breaks Linux imx-mailbox (kick timeouts, -ETIME). v4 of the
+series converts with offset >> 2; this is the equivalent local fix on v2.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01N6ARuNFVFRYsZvkzccFqWA
+
+Upstream-Status: Inappropriate [local fix for v2 of the series; v4 does the equivalent]
+---
+ hw/misc/imx8mp_mu.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/hw/misc/imx8mp_mu.c b/hw/misc/imx8mp_mu.c
+index adaaf26e..3cbaecbb 100644
+--- a/hw/misc/imx8mp_mu.c
++++ b/hw/misc/imx8mp_mu.c
+@@ -79,7 +79,7 @@ static uint64_t imx8mp_mu_read(void *opaque, hwaddr offset, unsigned size)
+         return 0;
+     }
+ 
+-    if (offset < MU_RR0) {
++    if (offset < MU_RR0 * 4) {
+         unsigned tr = offset >> 2;
+         if (s->strict_access) {
+             qemu_log_mask(LOG_GUEST_ERROR,
+@@ -90,8 +90,8 @@ static uint64_t imx8mp_mu_read(void *opaque, hwaddr offset, unsigned size)
+         return s->mu[MU_TR0 + tr];
+     }
+ 
+-    if (offset >= MU_RR0 && offset < MU_SR) {
+-        unsigned rr = (offset - MU_RR0) >> 2;
++    if (offset >= MU_RR0 * 4 && offset < MU_SR * 4) {
++        unsigned rr = (offset - MU_RR0 * 4) >> 2;
+         uint32_t v = s->mu[MU_RR0 + rr];
+     IMX8MPMUState *p = imx8mp_mu_peer(s);
+ 
+@@ -114,9 +114,9 @@ static uint64_t imx8mp_mu_read(void *opaque, hwaddr offset, unsigned size)
+     }
+ 
+     switch (offset) {
+-    case MU_SR:
++    case MU_SR * 4:
+         return s->mu[MU_SR];
+-    case MU_CR:
++    case MU_CR * 4:
+         return s->mu[MU_CR];
+     default:
+         qemu_log_mask(LOG_GUEST_ERROR,
+@@ -145,7 +145,7 @@ static void imx8mp_mu_write(void *opaque, hwaddr offset,
+     }
+ 
+     /* TR0..TR3 */
+-    if (offset < MU_RR0) {
++    if (offset < MU_RR0 * 4) {
+         unsigned tr = offset >> 2;
+         uint32_t v = (uint32_t)value;
+         IMX8MPMUState *p = imx8mp_mu_peer(s);
+@@ -177,15 +177,15 @@ static void imx8mp_mu_write(void *opaque, hwaddr offset,
+     }
+ 
+     /* RR are read-only from this side */
+-    if (offset >= MU_RR0 && offset < MU_SR) {
+-        unsigned rr = (offset - MU_RR0) >> 2;
++    if (offset >= MU_RR0 * 4 && offset < MU_SR * 4) {
++        unsigned rr = (offset - MU_RR0 * 4) >> 2;
+         qemu_log_mask(LOG_GUEST_ERROR,
+                       "imx8mp_mu: write to RR%d ignored\n", rr);
+         return;
+     }
+ 
+     switch (offset) {
+-    case MU_CR: {
++    case MU_CR * 4: {
+         uint32_t v = (uint32_t)value;
+         IMX8MPMUState *p = imx8mp_mu_peer(s);
+         uint32_t gir_mask = 0;
+@@ -215,7 +215,7 @@ static void imx8mp_mu_write(void *opaque, hwaddr offset,
+         return;
+     }
+ 
+-    case MU_SR:{
++    case MU_SR * 4:{
+ 
+         /* Write-1-to-clear for doorbell bits */
+         uint32_t v = (uint32_t)value;

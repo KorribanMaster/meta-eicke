@@ -1,0 +1,162 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eicke Hecht <eicke.hecht@gmail.com>
+Date: Sat, 17 Oct 2026 22:02:45 +0200
+Subject: [PATCH 8/8] hw/misc/imx8mp: use the QEMU 10.2 header paths
+
+The Cortex-M7 AMP series is based on QEMU 11.1-dev, after the hw/*.h
+headers moved to hw/core/. Point the new i.MX8MP devices back at the
+10.2 locations so the series builds on the QEMU that oe-core ships.
+
+Upstream-Status: Inappropriate [backport of an 11.1-dev series to 10.2]
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ hw/misc/imx8mp_ccm.c         | 2 +-
+ hw/misc/imx8mp_gpc.c         | 2 +-
+ hw/misc/imx8mp_gpr.c         | 4 ++--
+ hw/misc/imx8mp_mu.c          | 6 +++---
+ hw/misc/imx8mp_src.c         | 4 ++--
+ include/hw/misc/imx8mp_ccm.h | 2 +-
+ include/hw/misc/imx8mp_gpc.h | 2 +-
+ include/hw/misc/imx8mp_gpr.h | 2 +-
+ include/hw/misc/imx8mp_mu.h  | 2 +-
+ include/hw/misc/imx8mp_src.h | 2 +-
+ 10 files changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/hw/misc/imx8mp_ccm.c b/hw/misc/imx8mp_ccm.c
+index 5530c924..e03f7411 100644
+--- a/hw/misc/imx8mp_ccm.c
++++ b/hw/misc/imx8mp_ccm.c
+@@ -12,7 +12,7 @@
+ #include "qemu/log.h"
+ 
+ #include "hw/misc/imx8mp_ccm.h"
+-#include "hw/core/qdev-clock.h"
++#include "hw/qdev-clock.h"
+ #include "migration/vmstate.h"
+ 
+ #include "trace.h"
+diff --git a/hw/misc/imx8mp_gpc.c b/hw/misc/imx8mp_gpc.c
+index 9d8b9377..0d219be9 100644
+--- a/hw/misc/imx8mp_gpc.c
++++ b/hw/misc/imx8mp_gpc.c
+@@ -9,7 +9,7 @@
+ 
+ 
+ #include "qemu/osdep.h"
+-#include "hw/core/resettable.h"
++#include "hw/resettable.h"
+ #include "hw/misc/imx8mp_gpc.h"
+ #include "migration/vmstate.h"
+ 
+diff --git a/hw/misc/imx8mp_gpr.c b/hw/misc/imx8mp_gpr.c
+index d7947610..e51bc41d 100644
+--- a/hw/misc/imx8mp_gpr.c
++++ b/hw/misc/imx8mp_gpr.c
+@@ -9,8 +9,8 @@
+ 
+ #include "qemu/osdep.h"
+ #include "hw/misc/imx8mp_gpr.h"
+-#include "hw/core/irq.h"
+-#include "hw/core/resettable.h"
++#include "hw/irq.h"
++#include "hw/resettable.h"
+ #include "migration/vmstate.h"
+ 
+ #define IMX8MP_GPR22_OFF     0x58
+diff --git a/hw/misc/imx8mp_mu.c b/hw/misc/imx8mp_mu.c
+index 3cbaecbb..9f503c08 100644
+--- a/hw/misc/imx8mp_mu.c
++++ b/hw/misc/imx8mp_mu.c
+@@ -12,9 +12,9 @@
+ #include "qemu/log.h"
+ 
+ #include "hw/misc/imx8mp_mu.h"
+-#include "hw/core/irq.h"
+-#include "hw/core/qdev-properties.h"
+-#include "hw/core/resettable.h"
++#include "hw/irq.h"
++#include "hw/qdev-properties.h"
++#include "hw/resettable.h"
+ #include "migration/vmstate.h"
+ 
+ 
+diff --git a/hw/misc/imx8mp_src.c b/hw/misc/imx8mp_src.c
+index 8e5e3577..9258d035 100644
+--- a/hw/misc/imx8mp_src.c
++++ b/hw/misc/imx8mp_src.c
+@@ -8,8 +8,8 @@
+ 
+ #include "qemu/osdep.h"
+ #include "hw/misc/imx8mp_src.h"
+-#include "hw/core/resettable.h"
+-#include "hw/core/registerfields.h"
++#include "hw/resettable.h"
++#include "hw/registerfields.h"
+ #include "migration/vmstate.h"
+ #include "qemu/log.h"
+ #include "trace.h"
+diff --git a/include/hw/misc/imx8mp_ccm.h b/include/hw/misc/imx8mp_ccm.h
+index c6ede692..cd4d4682 100644
+--- a/include/hw/misc/imx8mp_ccm.h
++++ b/include/hw/misc/imx8mp_ccm.h
+@@ -9,7 +9,7 @@
+ #ifndef IMX8MP_CCM_H
+ #define IMX8MP_CCM_H
+ 
+-#include "hw/core/clock.h"
++#include "hw/clock.h"
+ #include "hw/misc/imx_ccm.h"
+ #include "qom/object.h"
+ 
+diff --git a/include/hw/misc/imx8mp_gpc.h b/include/hw/misc/imx8mp_gpc.h
+index 49a040e0..e5a7148c 100644
+--- a/include/hw/misc/imx8mp_gpc.h
++++ b/include/hw/misc/imx8mp_gpc.h
+@@ -11,7 +11,7 @@
+ #ifndef IMX8MP_GPC_H
+ #define IMX8MP_GPC_H
+ 
+-#include "hw/core/sysbus.h"
++#include "hw/sysbus.h"
+ #include "qom/object.h"
+ 
+ #define IMX8MP_GPC_MMIO_SIZE 0x1000
+diff --git a/include/hw/misc/imx8mp_gpr.h b/include/hw/misc/imx8mp_gpr.h
+index 4a0c7d85..c6cff38b 100644
+--- a/include/hw/misc/imx8mp_gpr.h
++++ b/include/hw/misc/imx8mp_gpr.h
+@@ -11,7 +11,7 @@
+ #ifndef IMX8MP_GPR_H
+ #define IMX8MP_GPR_H
+ 
+-#include "hw/core/sysbus.h"
++#include "hw/sysbus.h"
+ #include "qom/object.h"
+ 
+ #define TYPE_IMX8MP_GPR "imx8mp.gpr"
+diff --git a/include/hw/misc/imx8mp_mu.h b/include/hw/misc/imx8mp_mu.h
+index 48017084..2fc4f106 100644
+--- a/include/hw/misc/imx8mp_mu.h
++++ b/include/hw/misc/imx8mp_mu.h
+@@ -11,7 +11,7 @@
+ #ifndef IMX8MP_MU_H
+ #define IMX8MP_MU_H
+ 
+-#include "hw/core/sysbus.h"
++#include "hw/sysbus.h"
+ #include "qom/object.h"
+ 
+ #define IMX8MP_MU_MMIO_SIZE 0x10000
+diff --git a/include/hw/misc/imx8mp_src.h b/include/hw/misc/imx8mp_src.h
+index 2a8c1ca2..483740a0 100644
+--- a/include/hw/misc/imx8mp_src.h
++++ b/include/hw/misc/imx8mp_src.h
+@@ -9,7 +9,7 @@
+ #ifndef FSL_IMX8MP_SRC_H
+ #define FSL_IMX8MP_SRC_H
+ 
+-#include "hw/core/sysbus.h"
++#include "hw/sysbus.h"
+ #include "system/memory.h"
+ #include "qom/object.h"
+ 

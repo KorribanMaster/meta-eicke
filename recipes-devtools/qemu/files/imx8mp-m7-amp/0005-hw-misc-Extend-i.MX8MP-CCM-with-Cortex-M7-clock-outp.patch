@@ -1,0 +1,81 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Gaurav Sharma <gaurav.sharma_7@nxp.com>
+Date: Mon, 6 Jul 2026 21:58:57 +0530
+Subject: [PATCH 5/8] hw/misc: Extend i.MX8MP CCM with Cortex-M7 clock outputs
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add cm7_cpuclk (24 MHz) and cm7_refclk (32.768 kHz) clock outputs
+to the i.MX8MP CCM. These are required by the ARMv7M model to boot
+the Cortex-M7 core in an AMP configuration.
+
+Signed-off-by: Gaurav Sharma <gaurav.sharma_7@nxp.com>
+Reviewed-by: Philippe Mathieu-Daudé <philmd@linaro.org>
+Message-Id: <20260706162859.3361063-6-gaurav.sharma_7@nxp.com>
+
+Upstream-Status: Submitted [https://patchew.org/QEMU/20260706162859.3361063-1-gaurav.sharma._5F7@nxp.com/]
+---
+ hw/misc/imx8mp_ccm.c         | 9 +++++++++
+ include/hw/misc/imx8mp_ccm.h | 3 +++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/hw/misc/imx8mp_ccm.c b/hw/misc/imx8mp_ccm.c
+index 911911ed..5530c924 100644
+--- a/hw/misc/imx8mp_ccm.c
++++ b/hw/misc/imx8mp_ccm.c
+@@ -12,17 +12,24 @@
+ #include "qemu/log.h"
+ 
+ #include "hw/misc/imx8mp_ccm.h"
++#include "hw/core/qdev-clock.h"
+ #include "migration/vmstate.h"
+ 
+ #include "trace.h"
+ 
+ #define CKIH_FREQ 16000000 /* 16MHz crystal input */
+ 
++#define IMX8MP_CM7_CPUCLK_HZ 24000000ULL   /* osc_24m */
++#define IMX8MP_CM7_REFCLK_HZ 32768ULL      /* osc_32k */
++
+ static void imx8mp_ccm_reset(DeviceState *dev)
+ {
+     IMX8MPCCMState *s = IMX8MP_CCM(dev);
+ 
+     memset(s->ccm, 0, sizeof(s->ccm));
++
++    clock_set_hz(s->cm7_cpuclk, IMX8MP_CM7_CPUCLK_HZ);
++    clock_set_hz(s->cm7_refclk, IMX8MP_CM7_REFCLK_HZ);
+ }
+ 
+ #define CCM_INDEX(offset)   (((offset) & ~(hwaddr)0xF) / sizeof(uint32_t))
+@@ -88,6 +95,8 @@ static void imx8mp_ccm_init(Object *obj)
+     SysBusDevice *sd = SYS_BUS_DEVICE(obj);
+     IMX8MPCCMState *s = IMX8MP_CCM(obj);
+ 
++    s->cm7_cpuclk = qdev_init_clock_out(DEVICE(obj), "cm7_cpuclk");
++    s->cm7_refclk = qdev_init_clock_out(DEVICE(obj), "cm7_refclk");
+     memory_region_init_io(&s->iomem,
+                           obj,
+                           &imx8mp_set_clr_tog_ops,
+diff --git a/include/hw/misc/imx8mp_ccm.h b/include/hw/misc/imx8mp_ccm.h
+index 685c8582..c6ede692 100644
+--- a/include/hw/misc/imx8mp_ccm.h
++++ b/include/hw/misc/imx8mp_ccm.h
+@@ -9,6 +9,7 @@
+ #ifndef IMX8MP_CCM_H
+ #define IMX8MP_CCM_H
+ 
++#include "hw/core/clock.h"
+ #include "hw/misc/imx_ccm.h"
+ #include "qom/object.h"
+ 
+@@ -25,6 +26,8 @@ struct IMX8MPCCMState {
+     MemoryRegion iomem;
+ 
+     uint32_t ccm[CCM_MAX];
++    Clock *cm7_cpuclk;
++    Clock *cm7_refclk;
+ };
+ 
+ #endif /* IMX8MP_CCM_H */

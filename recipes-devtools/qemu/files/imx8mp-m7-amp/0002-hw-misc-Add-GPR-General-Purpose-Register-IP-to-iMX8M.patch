@@ -1,0 +1,352 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Gaurav Sharma <gaurav.sharma_7@nxp.com>
+Date: Mon, 6 Jul 2026 21:58:54 +0530
+Subject: [PATCH 2/8] hw/misc: Add GPR (General Purpose Register) IP to iMX8MP
+
+Add IOMUXC General Purpose Registers IP and wire it into the i.MX8MP SoC model.
+The GPR block provides system-level configuration registers on the i.MX8MP SoC.
+It provides general purpose control bits and Cortex-M7 CPUWAIT gate needed for AMP boot
+
+Signed-off-by: Gaurav Sharma <gaurav.sharma_7@nxp.com>
+Message-Id: <20260706162859.3361063-3-gaurav.sharma_7@nxp.com>
+
+Upstream-Status: Submitted [https://patchew.org/QEMU/20260706162859.3361063-1-gaurav.sharma._5F7@nxp.com/]
+---
+ docs/system/arm/imx8mp-evk.rst |   1 +
+ hw/arm/Kconfig                 |   1 +
+ hw/arm/fsl-imx8mp.c            |  10 +++
+ hw/misc/Kconfig                |   3 +
+ hw/misc/imx8mp_gpr.c           | 153 +++++++++++++++++++++++++++++++++
+ hw/misc/meson.build            |   1 +
+ include/hw/arm/fsl-imx8mp.h    |   2 +
+ include/hw/misc/imx8mp_gpr.h   |  56 ++++++++++++
+ 8 files changed, 227 insertions(+)
+ create mode 100644 hw/misc/imx8mp_gpr.c
+ create mode 100644 include/hw/misc/imx8mp_gpr.h
+
+diff --git a/docs/system/arm/imx8mp-evk.rst b/docs/system/arm/imx8mp-evk.rst
+index da6ca161..d7e17a2d 100644
+--- a/docs/system/arm/imx8mp-evk.rst
++++ b/docs/system/arm/imx8mp-evk.rst
+@@ -24,6 +24,7 @@ The ``imx8mp-evk`` machine implements the following devices:
+  * Secure Non-Volatile Storage (SNVS) including an RTC
+  * Clock Tree
+  * General Power Controller (GPC)
++ * General Purpose Register (GPR)
+ 
+ Boot options
+ ------------
+diff --git a/hw/arm/Kconfig b/hw/arm/Kconfig
+index e80b79e2..07038b68 100644
+--- a/hw/arm/Kconfig
++++ b/hw/arm/Kconfig
+@@ -609,6 +609,7 @@ config FSL_IMX8MP
+     select FSL_IMX8MP_ANALOG
+     select FSL_IMX8MP_CCM
+     select FSL_IMX8MP_GPC
++    select FSL_IMX8MP_GPR
+     select IMX
+     select IMX_FEC
+     select IMX_I2C
+diff --git a/hw/arm/fsl-imx8mp.c b/hw/arm/fsl-imx8mp.c
+index e72324b7..350a8783 100644
+--- a/hw/arm/fsl-imx8mp.c
++++ b/hw/arm/fsl-imx8mp.c
+@@ -213,6 +213,8 @@ static void fsl_imx8mp_init(Object *obj)
+ 
+     object_initialize_child(obj, "gpc", &s->gpc, TYPE_IMX8MP_GPC);
+ 
++    object_initialize_child(obj, "gpr", &s->gpr, TYPE_IMX8MP_GPR);
++
+     for (i = 0; i < FSL_IMX8MP_NUM_UARTS; i++) {
+         g_autofree char *name = g_strdup_printf("uart%d", i + 1);
+         object_initialize_child(obj, name, &s->uart[i], TYPE_IMX_SERIAL);
+@@ -432,6 +434,13 @@ static void fsl_imx8mp_realize(DeviceState *dev, Error **errp)
+     sysbus_mmio_map(SYS_BUS_DEVICE(&s->gpc), 0,
+                     fsl_imx8mp_memmap[FSL_IMX8MP_GPC].addr);
+ 
++    /* GPR */
++    if (!sysbus_realize(SYS_BUS_DEVICE(&s->gpr), errp)) {
++        return;
++    }
++    sysbus_mmio_map(SYS_BUS_DEVICE(&s->gpr), 0,
++                    fsl_imx8mp_memmap[FSL_IMX8MP_IOMUXC_GPR].addr);
++
+     /* GPTs */
+     object_property_set_int(OBJECT(&s->gpt5_gpt6_irq), "num-lines", 2,
+                             &error_abort);
+@@ -701,6 +710,7 @@ static void fsl_imx8mp_realize(DeviceState *dev, Error **errp)
+         case FSL_IMX8MP_ECSPI1 ... FSL_IMX8MP_ECSPI3:
+         case FSL_IMX8MP_ENET1:
+         case FSL_IMX8MP_I2C1 ... FSL_IMX8MP_I2C6:
++        case FSL_IMX8MP_IOMUXC_GPR:
+         case FSL_IMX8MP_OCRAM:
+         case FSL_IMX8MP_PCIE1:
+         case FSL_IMX8MP_PCIE_PHY1:
+diff --git a/hw/misc/Kconfig b/hw/misc/Kconfig
+index 0c92c79e..80304164 100644
+--- a/hw/misc/Kconfig
++++ b/hw/misc/Kconfig
+@@ -99,6 +99,9 @@ config FSL_IMX8MP_CCM
+ config FSL_IMX8MP_GPC
+     bool
+ 
++config FSL_IMX8MP_GPR
++    bool
++
+ config STM32_RCC
+     bool
+ 
+diff --git a/hw/misc/imx8mp_gpr.c b/hw/misc/imx8mp_gpr.c
+new file mode 100644
+index 00000000..d7947610
+--- /dev/null
++++ b/hw/misc/imx8mp_gpr.c
+@@ -0,0 +1,153 @@
++/*
++ * i.MX 8M Plus IOMUXC GPR
++ *
++ * Copyright (c) 2026, NXP Semiconductors
++ * Author: Gaurav Sharma <gaurav.sharma_7@nxp.com>
++
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++
++#include "qemu/osdep.h"
++#include "hw/misc/imx8mp_gpr.h"
++#include "hw/core/irq.h"
++#include "hw/core/resettable.h"
++#include "migration/vmstate.h"
++
++#define IMX8MP_GPR22_OFF     0x58
++#define IMX8MP_GPR22_CM7_CPUWAIT_BIT  (1u << 0)
++
++static inline void imx8mp_gpr_update_cm7_run(IMX8MPGPRState *s, uint32_t gpr22)
++{
++    /* CPUWAIT=0 => run, CPUWAIT=1 => stop */
++    bool run = ((gpr22 & IMX8MP_GPR22_CM7_CPUWAIT_BIT) == 0);
++    qemu_set_irq(s->cm7_run_irq, run);
++}
++
++static uint64_t imx8mp_gpr_read(void *opaque, hwaddr offset, unsigned size)
++{
++    IMX8MPGPRState *s = opaque;
++
++    return s->gpr[offset >> 2];
++}
++
++static void imx8mp_gpr_write(void *opaque, hwaddr offset,
++                              uint64_t value, unsigned size)
++{
++    IMX8MPGPRState *s = opaque;
++
++    s->gpr[offset >> 2] = (uint32_t)value;
++
++    /* Watch GPR22 bit0 (CM7_CPUWAIT) transitions */
++    if (offset == IMX8MP_GPR22_OFF) {
++        imx8mp_gpr_update_cm7_run(s, s->gpr[IMX8MP_GPR22_OFF >> 2]);
++    }
++
++}
++
++static const MemoryRegionOps imx8mp_gpr_ops = {
++    .read = imx8mp_gpr_read,
++    .write = imx8mp_gpr_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .impl = {
++        .min_access_size = 4,
++        .max_access_size = 4,
++    .unaligned = false,
++    },
++};
++
++static ResettablePhases imx8mp_gpr_parent_phases;
++
++static void imx8mp_gpr_reset_enter(Object *obj, ResetType type)
++{
++    IMX8MPGPRState *s = IMX8MP_GPR(obj);
++
++    if (imx8mp_gpr_parent_phases.enter) {
++        imx8mp_gpr_parent_phases.enter(obj, type);
++    }
++
++    memset(s->gpr, 0, sizeof(s->gpr));
++
++    s->gpr[IOMUXC_GPR_GPR0] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR1] = 0x00010000;
++    s->gpr[IOMUXC_GPR_GPR2] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR3] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR4] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR5] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR6] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR7] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR8] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR9] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR10] = 0x00000008;
++    s->gpr[IOMUXC_GPR_GPR11] = 0x00000200;
++    s->gpr[IOMUXC_GPR_GPR12] = 0x00004000;
++    s->gpr[IOMUXC_GPR_GPR13] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR14] = 0x03494000;
++    s->gpr[IOMUXC_GPR_GPR15] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR16] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR17] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR18] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR19] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR20] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR21] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR22] = 0x00000001;
++    s->gpr[IOMUXC_GPR_GPR23] = 0x00000000;
++    s->gpr[IOMUXC_GPR_GPR24] = 0x00000000;
++}
++
++static void imx8mp_gpr_reset_hold(Object *obj, ResetType type)
++{
++    IMX8MPGPRState *s = IMX8MP_GPR(obj);
++
++    if (imx8mp_gpr_parent_phases.hold) {
++        imx8mp_gpr_parent_phases.hold(obj, type);
++    }
++
++    /* Drive cm7_run_irq output to match reset value of CPUWAIT */
++    imx8mp_gpr_update_cm7_run(s, s->gpr[IMX8MP_GPR22_OFF >> 2]);
++}
++
++static const VMStateDescription imx8mp_gpr_vmstate = {
++    .name = TYPE_IMX8MP_GPR,
++    .version_id = 1,
++    .minimum_version_id = 1,
++    .fields = (const VMStateField[]) {
++        VMSTATE_UINT32_ARRAY(gpr, IMX8MPGPRState, IOMUXC_GPR_MAX),
++        VMSTATE_END_OF_LIST()
++    },
++};
++
++static void imx8mp_gpr_init(Object *obj)
++{
++    IMX8MPGPRState *s = IMX8MP_GPR(obj);
++    memory_region_init_io(&s->mmio, obj, &imx8mp_gpr_ops, s,
++                          TYPE_IMX8MP_GPR, sizeof(s->gpr));
++    sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->mmio);
++    sysbus_init_irq(SYS_BUS_DEVICE(obj), &s->cm7_run_irq);
++}
++
++static void imx8mp_gpr_class_init(ObjectClass *oc, const void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(oc);
++    ResettableClass *rc = RESETTABLE_CLASS(oc);
++
++    resettable_class_set_parent_phases(rc,
++                                       imx8mp_gpr_reset_enter,
++                                       imx8mp_gpr_reset_hold,
++                                       NULL,
++                                       &imx8mp_gpr_parent_phases);
++
++    dc->vmsd = &imx8mp_gpr_vmstate;
++    dc->desc = "i.MX8MP IOMUXC GPR";
++}
++
++static const TypeInfo imx8mp_gpr_info[] = {
++    {
++        .name = TYPE_IMX8MP_GPR,
++        .parent = TYPE_SYS_BUS_DEVICE,
++        .instance_size = sizeof(IMX8MPGPRState),
++        .instance_init = imx8mp_gpr_init,
++        .class_init = imx8mp_gpr_class_init,
++    }
++};
++
++DEFINE_TYPES(imx8mp_gpr_info);
+diff --git a/hw/misc/meson.build b/hw/misc/meson.build
+index f3a95ef7..de969f7e 100644
+--- a/hw/misc/meson.build
++++ b/hw/misc/meson.build
+@@ -58,6 +58,7 @@ system_ss.add(when: 'CONFIG_EXYNOS4', if_true: files('exynos4210_pmu.c', 'exynos
+ system_ss.add(when: 'CONFIG_FSL_IMX8MP_ANALOG', if_true: files('imx8mp_analog.c'))
+ system_ss.add(when: 'CONFIG_FSL_IMX8MP_CCM', if_true: files('imx8mp_ccm.c'))
+ system_ss.add(when: 'CONFIG_FSL_IMX8MP_GPC', if_true: files('imx8mp_gpc.c'))
++system_ss.add(when: 'CONFIG_FSL_IMX8MP_GPR', if_true: files('imx8mp_gpr.c'))
+ system_ss.add(when: 'CONFIG_IMX', if_true: files(
+   'imx25_ccm.c',
+   'imx31_ccm.c',
+diff --git a/include/hw/arm/fsl-imx8mp.h b/include/hw/arm/fsl-imx8mp.h
+index 01c4b1f9..1cdf0224 100644
+--- a/include/hw/arm/fsl-imx8mp.h
++++ b/include/hw/arm/fsl-imx8mp.h
+@@ -18,6 +18,7 @@
+ #include "hw/misc/imx8mp_analog.h"
+ #include "hw/misc/imx8mp_ccm.h"
+ #include "hw/misc/imx8mp_gpc.h"
++#include "hw/misc/imx8mp_gpr.h"
+ #include "hw/net/imx_fec.h"
+ #include "hw/or-irq.h"
+ #include "hw/pci-host/designware.h"
+@@ -56,6 +57,7 @@ struct FslImx8mpState {
+     ARMCPU             cpu[FSL_IMX8MP_NUM_CPUS];
+     GICv3State         gic;
+     IMX8MPGPCState     gpc;
++    IMX8MPGPRState     gpr;
+     IMXGPTState        gpt[FSL_IMX8MP_NUM_GPTS];
+     IMXGPIOState       gpio[FSL_IMX8MP_NUM_GPIOS];
+     IMX8MPCCMState     ccm;
+diff --git a/include/hw/misc/imx8mp_gpr.h b/include/hw/misc/imx8mp_gpr.h
+new file mode 100644
+index 00000000..4a0c7d85
+--- /dev/null
++++ b/include/hw/misc/imx8mp_gpr.h
+@@ -0,0 +1,56 @@
++/*
++ * i.MX 8M Plus IOMUXC GPR
++ *
++ * Copyright (c) 2026, NXP Semiconductors
++ * Author: Gaurav Sharma <gaurav.sharma_7@nxp.com>
++
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++
++
++#ifndef IMX8MP_GPR_H
++#define IMX8MP_GPR_H
++
++#include "hw/core/sysbus.h"
++#include "qom/object.h"
++
++#define TYPE_IMX8MP_GPR "imx8mp.gpr"
++OBJECT_DECLARE_SIMPLE_TYPE(IMX8MPGPRState, IMX8MP_GPR)
++
++enum IMX8MPGPRRegisters {
++    IOMUXC_GPR_GPR0  = 0x000 / 4,
++    IOMUXC_GPR_GPR1  = 0x004 / 4,
++    IOMUXC_GPR_GPR2  = 0x008 / 4,
++    IOMUXC_GPR_GPR3  = 0x00C / 4,
++    IOMUXC_GPR_GPR4  = 0x010 / 4,
++    IOMUXC_GPR_GPR5  = 0x014 / 4,
++    IOMUXC_GPR_GPR6  = 0x018 / 4,
++    IOMUXC_GPR_GPR7  = 0x01C / 4,
++    IOMUXC_GPR_GPR8  = 0x020 / 4,
++    IOMUXC_GPR_GPR9  = 0x024 / 4,
++    IOMUXC_GPR_GPR10 = 0x028 / 4,
++    IOMUXC_GPR_GPR11 = 0x02C / 4,
++    IOMUXC_GPR_GPR12 = 0x030 / 4,
++    IOMUXC_GPR_GPR13 = 0x034 / 4,
++    IOMUXC_GPR_GPR14 = 0x038 / 4,
++    IOMUXC_GPR_GPR15 = 0x03C / 4,
++    IOMUXC_GPR_GPR16 = 0x040 / 4,
++    IOMUXC_GPR_GPR17 = 0x044 / 4,
++    IOMUXC_GPR_GPR18 = 0x048 / 4,
++    IOMUXC_GPR_GPR19 = 0x04C / 4,
++    IOMUXC_GPR_GPR20 = 0x050 / 4,
++    IOMUXC_GPR_GPR21 = 0x054 / 4,
++    IOMUXC_GPR_GPR22 = 0x058 / 4,
++    IOMUXC_GPR_GPR23 = 0x05C / 4,
++    IOMUXC_GPR_GPR24 = 0x060 / 4,
++    IOMUXC_GPR_MAX,
++};
++
++struct IMX8MPGPRState {
++    SysBusDevice parent_obj;
++    MemoryRegion mmio;
++    qemu_irq cm7_run_irq;
++    uint32_t gpr[IOMUXC_GPR_MAX];
++};
++
++#endif /* IMX8MP_GPR_H */
