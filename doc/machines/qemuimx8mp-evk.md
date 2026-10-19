@@ -94,8 +94,7 @@ Attach the `.swu` as a second SD card and keep the disk overlay across runs:
 
 ```sh
 SWU=tmp/deploy/images/qemuimx8mp-evk/eicke-update-image-dev-qemuimx8mp-evk.rootfs.swu
-KEEP=1 OVERLAY=/tmp/imx8mp-ab.qcow2 IMAGE=eicke-image-dev \
-  QEMU_EXTRA="-drive file=$PWD/$SWU,if=sd,bus=1,format=raw,readonly=on" \
+KEEP=1 OVERLAY=/tmp/imx8mp-ab.qcow2 IMAGE=eicke-image-dev SWU=$PWD/$SWU \
   ../sources/meta-eicke/scripts/eicke-runqemu-imx8mp.sh
 # guest: swupdate -i /dev/mmcblkX   (the second SD card)
 #        fw_printenv rootdev ustate  -> rootfs_b, 1

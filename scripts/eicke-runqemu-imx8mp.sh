@@ -22,8 +22,10 @@
 #   M7LOG      M7 UART4 capture file   (default: ./m7-uart4.log)
 #   OVERLAY    qcow2 disk overlay      (default: a temp file, deleted on exit)
 #   KEEP=1     keep OVERLAY so a later run sees the guest's writes (A/B tests)
-#   QEMU_EXTRA extra qemu args, e.g. a .swu as a second SD card:
-#              QEMU_EXTRA="-drive file=x.swu,if=sd,bus=1,format=raw,readonly=on"
+#   SWU        a .swu to attach as a second SD card (the guest sees it as the
+#              mmcblk without partitions: swupdate -i /dev/mmcblkX); read-only
+#              for the guest's purposes, writes go to a temporary overlay
+#   QEMU_EXTRA extra qemu args
 set -euo pipefail
 
 IMAGE="${IMAGE:-eicke-image}"
@@ -62,9 +64,12 @@ done
 # The emulated SD card must be a power of two in size (the A/B wic is ~6.1 GiB),
 # so boot from a larger qcow2 overlay backed by the read-only wic. This also
 # keeps the deployed wic pristine (like runqemu's `snapshot`).
+# Temporary files removed on exit (the qemu run below is not exec'd).
+CLEANUP=()
+trap 'rm -f "${CLEANUP[@]}"' EXIT
 if [ -z "${OVERLAY:-}" ]; then
     OVERLAY="$(mktemp /tmp/eicke-imx8mp-XXXXXX.qcow2)"
-    [ "${KEEP:-0}" = 1 ] || trap 'rm -f "$OVERLAY"' EXIT
+    [ "${KEEP:-0}" = 1 ] || CLEANUP+=("$OVERLAY")
 fi
 if [ ! -s "$OVERLAY" ]; then
     size=$(stat -L -c %s "$WIC")
@@ -72,6 +77,18 @@ if [ ! -s "$OVERLAY" ]; then
     "$QEMU_IMG" create -q -f qcow2 -b "$(readlink -f "$WIC")" -F raw "$OVERLAY" "$sd"
 fi
 [ "${KEEP:-0}" = 1 ] && echo "[runqemu-imx8mp] disk overlay kept: $OVERLAY (pass OVERLAY= to reuse)"
+
+# Same power-of-two rule for the .swu card. It needs its own drive id: QEMU
+# names every if=sd drive sd<unit>, which clashes with the boot card's "sd0".
+swu_drive=()
+if [ -n "${SWU:-}" ]; then
+    SWU_OVERLAY="$(mktemp /tmp/eicke-imx8mp-swu-XXXXXX.qcow2)"
+    CLEANUP+=("$SWU_OVERLAY")
+    size=$(stat -L -c %s "$SWU")
+    sd=1; while [ "$sd" -lt "$size" ]; do sd=$((sd * 2)); done
+    "$QEMU_IMG" create -q -f qcow2 -b "$(readlink -f "$SWU")" -F raw "$SWU_OVERLAY" "$sd"
+    swu_drive=(-drive "file=$SWU_OVERLAY,if=sd,bus=1,id=swu,format=qcow2")
+fi
 
 # Root by the slot partition's PARTUUID (read from the wic's GPT; the overlay
 # only adds writes on top), as the real bootloaders do: a GPT name like
@@ -92,11 +109,11 @@ PY
 echo "[runqemu-imx8mp] $IMAGE on $SLOT; M7 UART4 -> $M7LOG; ssh -p $SSH root@127.0.0.1"
 # Serial: UART1 null, UART2 = A53 console, UART3 null, UART4 = M7 log.
 # Default -smp (4 A53 + the M7) comes from the patched machine. Not exec'd, so
-# the EXIT trap still removes a temporary overlay.
+# the EXIT trap still removes the temporary overlays.
 "$QEMU" -M imx8mp-evk -m "$MEM" -display none \
     -kernel "$KERNEL" -dtb "$DTB" \
     -append "root=PARTUUID=$PARTUUID eicke.slot=$SLOT rootwait console=ttymxc1,115200" \
     -drive "file=$OVERLAY,if=sd,bus=2,format=qcow2" \
     -nic "user,model=imx.enet,hostfwd=tcp::$SSH-:22" \
     -serial null -serial mon:stdio -serial null -serial "file:$M7LOG" \
-    ${QEMU_EXTRA:-}
+    "${swu_drive[@]}" ${QEMU_EXTRA:-}
