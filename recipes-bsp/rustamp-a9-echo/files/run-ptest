@@ -1,0 +1,11 @@
+#!/bin/sh
+# ptest entry point: start the RustAmp Cortex-A9 firmware on CPU1, run the
+# rpmsg echo test, then reload it twice. Prints PASS:/FAIL: lines for
+# ptest-runner.
+cd "$(dirname "$0")"
+if python3 ./rpmsg_echo_test.py; then
+    echo "PASS: rustamp-a9-echo"
+else
+    echo "FAIL: rustamp-a9-echo"
+    exit 1
+fi

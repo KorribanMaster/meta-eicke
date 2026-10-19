@@ -39,6 +39,57 @@
 		stdout-path = "serial0:115200n8";
 	};
 
+	/*
+	 * CPU1 is a remote processor (AMP): Linux boots with maxcpus=1 (kernel
+	 * config) and a9-rproc runs the RustAmp firmware rustamp-a9-echo.elf on
+	 * it. The top 32 MiB of DDR are the firmware's: image, resource table
+	 * and park page, vrings and the rpmsg buffer pool (RustAmp
+	 * examples/cortex-a9-rtu-echo/src/board.rs). CPU1 waits in the boot
+	 * ROM's loop for an entry address at 0xfffffff0 (SPL leaves the top
+	 * 512 bytes of OCM alone).
+	 */
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		/* rpmsg buffers: index 0, assigned to the vdev by remoteproc */
+		vdev0buffer: vdev0buffer@3f010000 {
+			compatible = "shared-dma-pool";
+			reg = <0x3f010000 0x100000>;
+			no-map;
+		};
+
+		vdev0vring0: vdev0vring0@3f000000 {
+			reg = <0x3f000000 0x8000>;
+			no-map;
+		};
+
+		vdev0vring1: vdev0vring1@3f008000 {
+			reg = <0x3f008000 0x8000>;
+			no-map;
+		};
+
+		/* firmware image, resource table and park page */
+		rtu_fw: rtu-fw@3e000000 {
+			reg = <0x3e000000 0x1000000>;
+			no-map;
+		};
+	};
+
+	remoteproc-cpu1 {
+		compatible = "rustamp,cortex-a9-rproc";
+		interrupt-parent = <&intc>;
+		memory-region = <&vdev0buffer>, <&vdev0vring0>, <&vdev0vring1>, <&rtu_fw>;
+		firmware-name = "rustamp-a9-echo.elf";
+		rustamp,cpu = <1>;
+		rustamp,tx-sgi = <15>;
+		rustamp,rx-sgi = <14>;
+		rustamp,start-method = "release-addr";
+		rustamp,release-addr = <0xfffffff0>;
+		rustamp,park-addr = <0x3efff000>;
+	};
+
 	/* USB3320C ULPI transceiver; its reset is the MIO8 hog below. */
 	usb_phy0: phy0 {
 		compatible = "usb-nop-xceiv";

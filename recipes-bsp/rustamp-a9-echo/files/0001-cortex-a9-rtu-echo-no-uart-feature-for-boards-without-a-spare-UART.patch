@@ -1,0 +1,67 @@
+From 23d33d494d19406f312670c7a61c813a3cca9ad5 Mon Sep 17 00:00:00 2001
+From: Eicke Hecht <eicke.hecht@gmail.com>
+Date: Mon, 19 Oct 2026 18:13:26 +0200
+Subject: [PATCH] cortex-a9-rtu-echo: no-uart feature for boards without a
+ spare UART
+
+The ALINX AX7015B has only UART1 on MIO, and it is Linux's console. UART0
+is neither routed nor clocked (ps7_init gates its AMBA and reference
+clocks), and touching a gated Zynq peripheral stalls the bus. With
+--features no-uart the log macro writes nothing.
+
+Upstream-Status: Pending [RustAmp]
+---
+ examples/cortex-a9-rtu-echo/Cargo.toml  | 4 ++++
+ examples/cortex-a9-rtu-echo/src/uart.rs | 7 +++++++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/examples/cortex-a9-rtu-echo/Cargo.toml b/examples/cortex-a9-rtu-echo/Cargo.toml
+index cef175e..705579c 100644
+--- a/examples/cortex-a9-rtu-echo/Cargo.toml
++++ b/examples/cortex-a9-rtu-echo/Cargo.toml
+@@ -22,6 +22,10 @@ default = ["zynq7000"]
+ zynq7000 = []
+ # Arria 10 SoC: debug output on UART1 (16550).
+ arria10 = []
++# No debug output: for boards whose spare UART is neither clocked nor
++# routed (ALINX AX7015B: only UART1, Linux's console, is on MIO). Touching a
++# Zynq peripheral with its AMBA clock gated stalls the bus.
++no-uart = []
+ 
+ [lib]
+ test = true
+diff --git a/examples/cortex-a9-rtu-echo/src/uart.rs b/examples/cortex-a9-rtu-echo/src/uart.rs
+index a5fb323..b50bfe8 100644
+--- a/examples/cortex-a9-rtu-echo/src/uart.rs
++++ b/examples/cortex-a9-rtu-echo/src/uart.rs
+@@ -4,6 +4,7 @@
+ //! The UART must already be clocked (Linux: `clk_ignore_unused`, or a clock
+ //! consumer in the device tree) and, on real hardware, its baud rate set by
+ //! the boot loader. This code only enables the transmitter and writes.
++//! With the `no-uart` feature it writes nothing and never touches the UART.
+ 
+ use core::fmt;
+ use core::ptr::{read_volatile, write_volatile};
+@@ -29,6 +30,9 @@ const NS_LSR_THRE: u32 = 1 << 5;
+ 
+ /// Enables the transmitter.
+ pub fn init() {
++    if cfg!(feature = "no-uart") {
++        return;
++    }
+     if BOARD.uart == UartKind::Cadence {
+         // SAFETY: the UART is reserved for the RTU (not used by Linux).
+         unsafe { write_volatile(reg(CDNS_CR), CDNS_CR_TXEN | CDNS_CR_RXEN) };
+@@ -36,6 +40,9 @@ pub fn init() {
+ }
+ 
+ fn put(b: u8) {
++    if cfg!(feature = "no-uart") {
++        return;
++    }
+     // SAFETY: as in `init`.
+     unsafe {
+         match BOARD.uart {
+-- 
+2.34.1
+

@@ -40,8 +40,9 @@ IMAGE_INSTALL:append:qemuimx8mp-evk = " rustamp-m7-echo"
 # /boot, where U-Boot's compiled-in bootcmd loads them from (per-slot, like
 # the kernel).
 IMAGE_INSTALL:append:ccimx8mn-dvk = " rustamp-m7-echo kernel-devicetree"
-# ALINX AX7015B: the DTB in each slot's /boot, like ccimx8mn-dvk.
-IMAGE_INSTALL:append:ax7015b = " kernel-devicetree"
+# ALINX AX7015B: the RustAmp Cortex-A9 firmware for CPU1 (pulls in the
+# a9-rproc driver), and the DTB in each slot's /boot, like ccimx8mn-dvk.
+IMAGE_INSTALL:append:ax7015b = " rustamp-a9-echo kernel-devicetree"
 
 # Bootloader-specific half of the A/B scheme (env seeding, env tooling, boot
 # script/config wiring). x86/EFI machines default to GRUB; qemuarm-uboot sets

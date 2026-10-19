@@ -1,0 +1,32 @@
+From a5e9e40cc93800f6998611efde5ddb1e93a8709c Mon Sep 17 00:00:00 2001
+From: Eicke Hecht <eicke.hecht@gmail.com>
+Date: Mon, 19 Oct 2026 18:33:01 +0200
+Subject: [PATCH] a9-rproc: add a modules_install target
+
+Lets a distribution build install the module through kbuild, which also
+signs it on kernels with CONFIG_MODULE_SIG_ALL (Yocto's module.bbclass
+runs "make modules_install"). Copying the .ko by hand leaves it unsigned,
+and a CONFIG_MODULE_SIG_FORCE kernel rejects it: "Loading of unsigned
+module is rejected".
+
+Upstream-Status: Pending [RustAmp]
+---
+ linux/a9-rproc/Makefile | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/linux/a9-rproc/Makefile b/linux/a9-rproc/Makefile
+index 2c67c4b..7dfe2dd 100644
+--- a/linux/a9-rproc/Makefile
++++ b/linux/a9-rproc/Makefile
+@@ -5,5 +5,8 @@ KDIR ?= /lib/modules/$(shell uname -r)/build
+ all:
+ 	$(MAKE) -C $(KDIR) M=$(CURDIR) modules
+ 
++modules_install:
++	$(MAKE) -C $(KDIR) M=$(CURDIR) modules_install
++
+ clean:
+ 	$(MAKE) -C $(KDIR) M=$(CURDIR) clean
+-- 
+2.34.1
+

@@ -76,4 +76,4 @@ are described as well.
   - [ccimx8mn-dvk](./machines/ccimx8mn-dvk.md) (Digi ConnectCore 8M Nano DVK,
     microSD A/B + Cortex-M7 / RustAmp),
   - [ax7015b](./machines/ax7015b.md) (ALINX AX7015B, Zynq-7000, microSD A/B,
-    U-Boot SPL)
+    U-Boot SPL + Cortex-A9 CPU1 / RustAmp)

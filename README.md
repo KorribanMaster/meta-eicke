@@ -103,7 +103,7 @@ Start at [`doc/general.md`](doc/general.md) (index). Highlights:
   [ccimx8mn-dvk](doc/machines/ccimx8mn-dvk.md) (Digi ConnectCore 8M Nano DVK,
   microSD A/B + Cortex-M7 / RustAmp; needs meta-freescale),
   [ax7015b](doc/machines/ax7015b.md) (ALINX AX7015B, Zynq-7000, microSD A/B,
-  U-Boot SPL)
+  U-Boot SPL + Cortex-A9 CPU1 / RustAmp)
 - Security — [doc/security.md](doc/security.md): hardening (SSH, kernel,
   sysctls, firewall, update gating), the verified-boot chains incl. UEFI
   Secure Boot setup, and the TPM-sealed /data encryption status (WIP)
