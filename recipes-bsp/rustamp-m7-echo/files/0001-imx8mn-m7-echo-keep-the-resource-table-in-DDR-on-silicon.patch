@@ -1,0 +1,41 @@
+From: Claude <noreply@anthropic.com>
+Subject: [PATCH] imx8mn-m7-echo: keep the resource table in DDR on silicon
+
+On the i.MX 8M Nano the A53 cannot access the M7 TCMs while the M7 runs:
+reads return stale data and writes are lost. imx_rproc copies the resource
+table into the loaded image after the segments and later writes the vdev
+status (DRIVER_OK) into it, so with the table in DTCM the firmware never
+sees DRIVER_OK and never announces its rpmsg channel. QEMU does not model
+this, which is why the QEMU build (DDR) works.
+
+Move the TCM build's resource table to DDR at 0x550FF000, inside the
+shared memory the firmware already maps uncached in its MPU. The device
+tree reserves that page as imx_rproc's "rsc-table" memory region at the
+same address, so Linux loads the table there and updates it in place.
+
+Upstream-Status: Pending [RustAmp: move to memory-tcm.x on main]
+Signed-off-by: Claude <noreply@anthropic.com>
+---
+--- a/examples/imx8mn-m7-echo/tcm.x
++++ b/examples/imx8mn-m7-echo/tcm.x
+@@ -3,12 +3,19 @@
+  * i.MX 8M Nano Cortex-M7, as seen from the M7. Linux (imx_rproc) loads the
+  * ELF into the TCMs through its own aliases (ITCM at 0x007E0000, DTCM at
+  * 0x00800000 on the A53 side). The M7 boots from the vector table at 0.
++ *
++ * The resource table is NOT in DTCM: while the M7 runs, the A53 cannot
++ * access the TCMs (reads return stale data, writes are lost), so Linux's
++ * vdev status write (DRIVER_OK) would never reach us. It lives in DDR at
++ * 0x550FF000 instead, inside the shared memory the MPU maps uncached, and
++ * the device tree reserves the same page as imx_rproc's "rsc-table" region,
++ * so Linux loads the table there and updates it in place.
+  */
+ MEMORY
+ {
+   ITCM : ORIGIN = 0x00000000, LENGTH = 128K   /* vectors, code, rodata, .data image */
+   DTCM : ORIGIN = 0x20000000, LENGTH = 124K   /* data, bss, stack */
+-  RSC  : ORIGIN = 0x2001F000, LENGTH = 4K     /* resource table */
++  RSC  : ORIGIN = 0x550FF000, LENGTH = 4K     /* resource table (DDR, shared) */
+ }
+ 
+ ENTRY(Reset)

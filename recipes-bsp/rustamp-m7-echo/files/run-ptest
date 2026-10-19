@@ -1,0 +1,10 @@
+#!/bin/sh
+# ptest entry point: start the RustAmp M7 firmware and run the rpmsg echo
+# test. Prints PASS:/FAIL: lines for ptest-runner.
+cd "$(dirname "$0")"
+if python3 ./rpmsg_echo_test.py; then
+    echo "PASS: rustamp-m7-echo"
+else
+    echo "FAIL: rustamp-m7-echo"
+    exit 1
+fi
