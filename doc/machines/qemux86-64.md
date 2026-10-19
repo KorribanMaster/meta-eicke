@@ -64,4 +64,4 @@ automatically.
 - Without `/dev/kvm`, drop `kvm` from the command line; QEMU falls back to (much
   slower) software emulation.
 - An unattended driver for the full boot → update → reboot → rollback cycle:
-  `scripts/test/regression.sh x86-ab` (see [testing](../testing.md)).
+  `pytest scripts/test/test_x86_ab.py` (see [testing](../testing.md)).

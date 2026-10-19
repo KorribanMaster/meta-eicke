@@ -121,8 +121,9 @@ before anything is written. Migration semantics:
     swupdate -H eicke:bogus -i <bundle>.swu   # -> refused (HW compatibility)
 
 End-to-end check of all of the above on qemux86-64:
-`scripts/test/hardening_test.sh` (boots the prod wic via runqemu, drives it
-over SSH with the test key; see [testing](testing.md)).
+`pytest -m secureboot scripts/test` (`test_hardening_x86.py`: boots the prod
+wic via runqemu, drives it over SSH with the test key; see
+[testing](testing.md)).
 
 ## Verified boot
 
