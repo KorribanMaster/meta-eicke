@@ -27,22 +27,28 @@ inherit overlayfs-etc
 # SELoader, signed grub-efi + grub.cfg/boot-menu.inc/.sig, efitools LockDown.efi,
 # efibootmgr, mokutil; removes the plain unsigned grub). Without the switch, use
 # the base bootimg-efi wic and ship no signed chain.
-WKS_FILE:x86-64 = "${@'eicke-ab-prod.wks.in' if d.getVar('EICKE_VBOOT') == '1' else 'eicke-ab.wks.in'}"
+# Machine-scoped (not :x86-64) on purpose: local.conf assigns
+# WKS_FILE:qemux86-64/:genericx86-64 for the base images, and a machine
+# override beats the arch override -- with :x86-64 this recipe's prod wks
+# would silently lose and the verified-boot ESP would never be built.
+WKS_FILE:qemux86-64 = "${@'eicke-ab-prod.wks.in' if d.getVar('EICKE_VBOOT') == '1' else 'eicke-ab.wks.in'}"
+WKS_FILE:genericx86-64 = "${@'eicke-ab-prod.wks.in' if d.getVar('EICKE_VBOOT') == '1' else 'eicke-ab.wks.in'}"
 IMAGE_INSTALL:append:x86-64 = "${@' packagegroup-efi-secure-boot' if d.getVar('EICKE_VBOOT') == '1' else ''}"
 
 # ARM (qemuarm-uboot): ship a signed /boot/fitImage per A/B slot
 # (linux-yocto-fitimage; the machine conf's eicke-verified-boot.inc turns on FIT
 # signing under the same feature). boot logic prefers /boot/fitImage (bootm)
 # over the plain zImage. Runtime signature enforcement is deferred (qemu
-# OF_BOARD) — see doc/verified-boot.md. kernel-image (zImage) from the base
+# OF_BOARD) — see doc/security.md. kernel-image (zImage) from the base
 # image stays as the fallback.
 IMAGE_INSTALL:append:qemuarm-uboot = "${@' linux-yocto-fitimage' if d.getVar('EICKE_VBOOT') == '1' else ''}"
 
-# ---- Encrypted /data (LUKS2, TPM2-sealed; x86 only) ---------------------------
-# cryptsetup for LUKS, tpm2-tools/cryptfs-tpm2 for sealing the key to PCR7.
-# The actual unlock + /etc overlay happens in the initramfs before switch_root
-# (replacing the overlayfs-etc preinit); these are also handy on the running
-# system for first-boot provisioning of the encrypted /data.
+# ---- Encrypted /data (LUKS2, TPM2-sealed; x86 only) -- WIP, NOT ACTIVE -------
+# cryptsetup for LUKS, tpm2-tools/cryptfs-tpm2 for TPM sealing. The initramfs
+# unlock path (eicke-initramfs, replacing the overlayfs-etc preinit below) is
+# implemented but NOT wired in: /data ships plaintext pending the swtpm
+# emulator blocker -- design, status and the re-activation checklist are in
+# doc/security.md. The tools stay installed for provisioning/diagnostics.
 IMAGE_INSTALL:append:x86-64 = " cryptsetup tpm2-tools cryptfs-tpm2"
 
 # Minimal kernel modules: drop the catch-all (the base installs all modules for
