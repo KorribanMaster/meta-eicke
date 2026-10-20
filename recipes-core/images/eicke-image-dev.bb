@@ -36,6 +36,9 @@ IMAGE_INSTALL:append:ccimx8mn-dvk = " rustamp-m7-echo-ptest"
 # ALINX AX7015B: the Linux <-> CPU1 rpmsg echo and reload test
 # (ptest-runner rustamp-a9-echo).
 IMAGE_INSTALL:append:ax7015b = " rustamp-a9-echo-ptest"
+# Trenz TE0820: the Linux <-> R5_0/R5_1 rpmsg echo and reload test, both
+# cores at once (ptest-runner rustamp-r5-echo).
+IMAGE_INSTALL:append:te0820 = " rustamp-r5-echo-ptest"
 
 # Debug symbols are intentionally NOT bundled (keeps the image curated). For
 # source-level gdb either add  IMAGE_FEATURES += "dbg-pkgs"  (large), or use the

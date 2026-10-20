@@ -33,9 +33,9 @@
 	compatible = "trenz,te0820", "xlnx,zynqmp";
 
 	/*
-	 * mmc0 is the microSD (boot and A/B disk) in U-Boot and Linux, as on
-	 * ax7015b: the eicke bootcmd and env live on mmc 0:1, the slots are
-	 * mmcblk0p2/p3. The eMMC is mmc1.
+	 * In Linux mmc0 is the microSD (boot and A/B disk), as on ax7015b: the
+	 * slots are mmcblk0p2/p3. The eMMC is mmc1. U-Boot swaps the two
+	 * (zynqmp-te0820-u-boot.dtsi): its SPL boots SD1 as mmc device 1.
 	 */
 	aliases {
 		ethernet0 = &gem3;
@@ -55,6 +55,110 @@
 	memory@0 {
 		device_type = "memory";
 		reg = <0x0 0x0 0x0 0x40000000>;
+	};
+
+	/*
+	 * rpmsg shared memory of the two R5s (RustAmp zynqmp-r5-echo), after
+	 * their rproc_N_fw_image carve-outs from zynqmp.dtsi (resource table
+	 * and trace buffer): two 16 KiB vrings and a buffer pool each. The
+	 * firmware has the same addresses built in (board.rs); R5_1's pool is
+	 * 512 KiB so both stay in the R5s' uncached window below 0x3f000000.
+	 * remoteproc finds them by node name per core, so both cores' nodes
+	 * are vdev0*.
+	 */
+	reserved-memory {
+		rpu0vdev0vring0: vdev0vring0@3ed40000 {
+			no-map;
+			reg = <0x0 0x3ed40000 0x0 0x4000>;
+		};
+
+		rpu0vdev0vring1: vdev0vring1@3ed44000 {
+			no-map;
+			reg = <0x0 0x3ed44000 0x0 0x4000>;
+		};
+
+		rpu0vdev0buffer: vdev0buffer@3ed48000 {
+			no-map;
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x3ed48000 0x0 0x100000>;
+		};
+
+		rpu1vdev0vring0: vdev0vring0@3ef40000 {
+			no-map;
+			reg = <0x0 0x3ef40000 0x0 0x4000>;
+		};
+
+		rpu1vdev0vring1: vdev0vring1@3ef44000 {
+			no-map;
+			reg = <0x0 0x3ef44000 0x0 0x4000>;
+		};
+
+		rpu1vdev0buffer: vdev0buffer@3ef48000 {
+			no-map;
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x3ef48000 0x0 0x80000>;
+		};
+	};
+};
+
+/*
+ * The R5 cluster in split mode, so both cores run firmware of their own
+ * (xlnx_r5_remoteproc; zynqmp.dtsi enables lockstep by default). Each core
+ * gets its carve-outs and the IPI mailbox to the APU (channel 0): R5_0 is
+ * IPI channel 1, R5_1 channel 2. The message buffers follow the IPI buffer
+ * layout (agent regions of 0x200 bytes: RPU0 0xff990000, RPU1 0xff990200,
+ * APU 0xff990400; 0x40 per destination: RPU0 0, RPU1 1, APU 2), as for the
+ * PMU mailbox in zynqmp.dtsi; the firmware itself only uses the doorbells.
+ */
+&rproc_lockstep {
+	status = "disabled";
+};
+
+&rproc_split {
+	status = "okay";
+
+	r5f@0 {
+		memory-region = <&rproc_0_fw_image>, <&rpu0vdev0vring0>,
+				<&rpu0vdev0vring1>, <&rpu0vdev0buffer>;
+		mboxes = <&ipi_mailbox_rpu0 0>, <&ipi_mailbox_rpu0 1>;
+		mbox-names = "tx", "rx";
+	};
+
+	r5f@1 {
+		memory-region = <&rproc_1_fw_image>, <&rpu1vdev0vring0>,
+				<&rpu1vdev0vring1>, <&rpu1vdev0buffer>;
+		mboxes = <&ipi_mailbox_rpu1 0>, <&ipi_mailbox_rpu1 1>;
+		mbox-names = "tx", "rx";
+	};
+};
+
+&zynqmp_ipi {
+	ipi_mailbox_rpu0: mailbox@ff990400 {
+		compatible = "xlnx,zynqmp-ipi-dest-mailbox";
+		reg = <0x0 0xff990400 0x0 0x20>,
+		      <0x0 0xff990420 0x0 0x20>,
+		      <0x0 0xff990080 0x0 0x20>,
+		      <0x0 0xff9900a0 0x0 0x20>;
+		reg-names = "local_request_region",
+			    "local_response_region",
+			    "remote_request_region",
+			    "remote_response_region";
+		#mbox-cells = <1>;
+		xlnx,ipi-id = <1>;
+	};
+
+	ipi_mailbox_rpu1: mailbox@ff990440 {
+		compatible = "xlnx,zynqmp-ipi-dest-mailbox";
+		reg = <0x0 0xff990440 0x0 0x20>,
+		      <0x0 0xff990460 0x0 0x20>,
+		      <0x0 0xff990280 0x0 0x20>,
+		      <0x0 0xff9902a0 0x0 0x20>;
+		reg-names = "local_request_region",
+			    "local_response_region",
+			    "remote_request_region",
+			    "remote_response_region";
+		#mbox-cells = <1>;
+		xlnx,ipi-id = <2>;
 	};
 };
 

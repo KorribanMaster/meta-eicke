@@ -1,0 +1,283 @@
+From 928f270baa1df8ac69e765036332f78a59d257e1 Mon Sep 17 00:00:00 2001
+From: Eicke Hecht <eicke.hecht@gmail.com>
+Date: Tue, 20 Oct 2026 10:51:10 +0200
+Subject: [PATCH 4/4] zynqmp-r5-echo: r5-1 feature to run on R5_1
+
+Both R5s of a split-mode cluster can run the echo at once; --features
+r5-1 builds the firmware for R5_1: its IPI channel (2, 0xFF320000,
+RPU GIC interrupt 66, routed to CPU interface 1) and rproc_1_fw_image
+(0x3EF00000) for the resource table and trace buffer, with its vrings
+and a 512 KiB buffer pool after it, so both cores' shared memory stays in
+the one uncached MPU window. build.rs writes memory.x from memory.x.in
+with the DDR regions moved; the template is renamed because ld finds an
+INCLUDEd memory.x in the package directory before any -L path.
+
+The firmware also brings its own reset handler: aarch32-rt's default
+one takes the core ID from MPIDR and parks every core but 0, which kept
+R5_1 (affinity 1) spinning in _asm_default_secondary_core_park. In split
+mode each R5 runs its own image from its own TCMs, so it always starts
+up as core 0.
+
+Upstream-Status: Pending [RustAmp]
+---
+ examples/zynqmp-r5-echo/Cargo.toml            |  3 +
+ examples/zynqmp-r5-echo/README.md             |  4 +-
+ examples/zynqmp-r5-echo/build.rs              | 20 +++++--
+ .../zynqmp-r5-echo/{memory.x => memory.x.in}  |  4 +-
+ examples/zynqmp-r5-echo/src/board.rs          | 55 ++++++++++++++++---
+ examples/zynqmp-r5-echo/src/hw.rs             |  8 +--
+ examples/zynqmp-r5-echo/src/main.rs           | 23 ++++++--
+ 7 files changed, 94 insertions(+), 23 deletions(-)
+ rename examples/zynqmp-r5-echo/{memory.x => memory.x.in} (89%)
+
+diff --git a/examples/zynqmp-r5-echo/Cargo.toml b/examples/zynqmp-r5-echo/Cargo.toml
+index 936ea59..900c2f7 100644
+--- a/examples/zynqmp-r5-echo/Cargo.toml
++++ b/examples/zynqmp-r5-echo/Cargo.toml
+@@ -25,6 +25,9 @@ zcu102 = []
+ # spare UART is neither routed nor clocked (Trenz TE0820: only UART0, Linux's
+ # console, is on MIO).
+ no-uart = []
++# Build for R5_1 instead of R5_0 (split mode): IPI channel 2 and the
++# rproc_1_fw_image carve-out, so both cores can run the echo at once.
++r5-1 = []
+ # AMD/Xilinx QEMU's ZCU102 model: it has no RPU GIC (the node is disabled in
+ # its hardware device tree), so poll IPI channel 1 instead of taking its
+ # interrupt. Everything else is the same as on hardware.
+diff --git a/examples/zynqmp-r5-echo/README.md b/examples/zynqmp-r5-echo/README.md
+index 590ccd9..854eb49 100644
+--- a/examples/zynqmp-r5-echo/README.md
++++ b/examples/zynqmp-r5-echo/README.md
+@@ -16,6 +16,8 @@ interrupt masking, the critical section behind `CsLock`).
+ |---|---|
+ | Build | `cargo build --release` (ZCU102 preset) |
+ | Build for QEMU | `cargo build --release --features qemu` |
++| Build for R5_1 | `cargo build --release --features r5-1` (IPI channel 2, `rproc_1_fw_image`) |
++| Without debug UART | `--features no-uart`: log only to the trace buffer |
+ | Tested | AMD/Xilinx QEMU's ZCU102 with Linux 7.2 ([`qemu/`](qemu/README.md)) |
+ 
+ It has not been run on a board yet.
+@@ -80,7 +82,7 @@ down and boots it again.
+ | `src/hw.rs` | IPI, RPU GIC, MPU, IRQ handler |
+ | `src/uart.rs`, `src/trace.rs` | Debug output on UART1 and into the trace buffer |
+ | `src/{board,ipi,gic}.rs` | Memory map and register encodings (host-tested: `cargo test --lib --target x86_64-unknown-linux-gnu`) |
+-| `memory.x` | Memory regions for `aarch32-rt`'s `link.x`, and the DDR sections |
++| `memory.x.in` | Memory regions for `aarch32-rt`'s `link.x`, and the DDR sections (`build.rs` writes it as `memory.x`) |
+ | `zcu102/` | ZCU102 device tree |
+ | `qemu/` | QEMU harness: AMD/Xilinx QEMU, PMU firmware, Linux, this firmware |
+ 
+diff --git a/examples/zynqmp-r5-echo/build.rs b/examples/zynqmp-r5-echo/build.rs
+index ba120bd..2577a6f 100644
+--- a/examples/zynqmp-r5-echo/build.rs
++++ b/examples/zynqmp-r5-echo/build.rs
+@@ -1,9 +1,21 @@
+ // SPDX-License-Identifier: BSD-3-Clause
+-//! Puts `memory.x` (included by aarch32-rt's `link.x`) on the linker path.
+-use std::env;
++//! Writes `memory.x` (included by aarch32-rt's `link.x`) from `memory.x.in`
++//! into `OUT_DIR` and puts that on the linker path. With the `r5-1` feature
++//! its DDR regions move from `rproc_0_fw_image` (0x3ED00000) to
++//! `rproc_1_fw_image` (0x3EF00000), as in `board.rs`. (The template is not
++//! named `memory.x`: ld looks for INCLUDEd files in the current directory,
++//! the package root, before the -L paths.)
++use std::{env, fs, path::Path};
+ 
+ fn main() {
+     let dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+-    println!("cargo:rustc-link-search={dir}");
+-    println!("cargo:rerun-if-changed=memory.x");
++    let out = env::var("OUT_DIR").unwrap();
++    let mut x = fs::read_to_string(Path::new(&dir).join("memory.x.in")).unwrap();
++    if env::var_os("CARGO_FEATURE_R5_1").is_some() {
++        assert_eq!(x.matches("ORIGIN = 0x3ED0").count(), 2, "memory.x.in DDR regions");
++        x = x.replace("ORIGIN = 0x3ED0", "ORIGIN = 0x3EF0");
++    }
++    fs::write(Path::new(&out).join("memory.x"), x).unwrap();
++    println!("cargo:rustc-link-search={out}");
++    println!("cargo:rerun-if-changed=memory.x.in");
+ }
+diff --git a/examples/zynqmp-r5-echo/memory.x b/examples/zynqmp-r5-echo/memory.x.in
+similarity index 89%
+rename from examples/zynqmp-r5-echo/memory.x
+rename to examples/zynqmp-r5-echo/memory.x.in
+index 6584bb6..e785ea3 100644
+--- a/examples/zynqmp-r5-echo/memory.x
++++ b/examples/zynqmp-r5-echo/memory.x.in
+@@ -3,7 +3,9 @@
+  * Zynq UltraScale+ RPU, R5_0 in split mode, as seen from the R5. Linux
+  * (xlnx_r5_remoteproc) loads the ELF into the TCMs, which the R5 boots from
+  * at 0, and into the rproc_0_fw_image carve-out in DDR. aarch32-rt's link.x
+- * includes this file.
++ * includes this file as memory.x, which build.rs writes from it: for R5_1 (feature r5-1) the
++ * DDR regions move to rproc_1_fw_image at 0x3EF00000; each core sees its
++ * own TCMs at 0.
+  */
+ MEMORY
+ {
+diff --git a/examples/zynqmp-r5-echo/src/board.rs b/examples/zynqmp-r5-echo/src/board.rs
+index e37b835..114f4cb 100644
+--- a/examples/zynqmp-r5-echo/src/board.rs
++++ b/examples/zynqmp-r5-echo/src/board.rs
+@@ -1,23 +1,37 @@
+ // SPDX-License-Identifier: BSD-3-Clause
+-//! Memory map and board constants (R5_0, split mode).
++//! Memory map and board constants (split mode; R5_0, or R5_1 with the
++//! `r5-1` feature).
+ //!
+ //! The DDR addresses follow the reserved-memory nodes of mainline Linux's
+-//! `zynqmp.dtsi` (`rproc_0_fw_image`) and of upstream OpenAMP's
+-//! `zynqmp-openamp.dtso` (vrings and buffers), which our overlay adds.
++//! `zynqmp.dtsi` (`rproc_0_fw_image`, `rproc_1_fw_image`) and of upstream
++//! OpenAMP's `zynqmp-openamp.dtso` (vrings and buffers), which our overlay
++//! adds. R5_1's vrings and buffers follow its own carve-out; its buffer pool
++//! is 512 KiB so that both cores' shared memory fits the one uncached MPU
++//! window below.
+ 
+-/// `rproc_0_fw_image`: resource table and trace buffer.
++/// `rproc_0_fw_image`: resource table and trace buffer. `build.rs` moves
++/// `memory.x`'s regions along.
++#[cfg(not(feature = "r5-1"))]
+ pub const FW_DDR_BASE: u32 = 0x3ED0_0000;
+-/// Size of `rproc_0_fw_image`.
++/// `rproc_1_fw_image`: resource table and trace buffer.
++#[cfg(feature = "r5-1")]
++pub const FW_DDR_BASE: u32 = 0x3EF0_0000;
++/// Size of the firmware carve-out.
+ pub const FW_DDR_SIZE: u32 = 0x4_0000;
+ /// The trace buffer (`memory.x` places `.rsc_trace` here).
+-pub const TRACE_DA: u32 = 0x3ED0_1000;
++pub const TRACE_DA: u32 = FW_DDR_BASE + 0x1000;
+ /// Trace buffer size.
+ pub const TRACE_LEN: u32 = 0x1000;
+ 
+-/// Shared memory: `vdev0vring0`, `vdev0vring1`, `vdev0buffer`.
+-pub const SHM_BASE: u32 = 0x3ED4_0000;
++/// Shared memory: `vdev0vring0`, `vdev0vring1`, `vdev0buffer` (R5_1:
++/// `vdev1vring0`, `vdev1vring1`, `vdev1buffer`), right after the carve-out.
++pub const SHM_BASE: u32 = FW_DDR_BASE + FW_DDR_SIZE;
+ /// 16 KiB per vring plus the 1 MiB buffer pool.
++#[cfg(not(feature = "r5-1"))]
+ pub const SHM_SIZE: u32 = 0x8000 + 0x10_0000;
++/// 16 KiB per vring plus a 512 KiB buffer pool.
++#[cfg(feature = "r5-1")]
++pub const SHM_SIZE: u32 = 0x8000 + 0x8_0000;
+ /// Ring entries per vring (upstream: 256).
+ pub const VRING_NUM: u32 = 256;
+ /// Used-ring alignment.
+@@ -30,9 +44,23 @@ pub const SHARED_MPU_BASE: u32 = 0x3EC0_0000;
+ pub const SHARED_MPU_SIZE: u32 = 0x40_0000;
+ 
+ /// IPI channel 1 (the RPU0 agent).
++#[cfg(not(feature = "r5-1"))]
+ pub const IPI_BASE: u32 = 0xFF31_0000;
+-/// Its interrupt on the RPU GIC.
++/// IPI channel 2 (the RPU1 agent).
++#[cfg(feature = "r5-1")]
++pub const IPI_BASE: u32 = 0xFF32_0000;
++/// Its interrupt on the RPU GIC (channel 1: 65, channel 2: 66).
++#[cfg(not(feature = "r5-1"))]
+ pub const IPI_IRQ: u32 = 65;
++/// Its interrupt on the RPU GIC (channel 1: 65, channel 2: 66).
++#[cfg(feature = "r5-1")]
++pub const IPI_IRQ: u32 = 66;
++/// This core's CPU interface on the RPU GIC (its `ITARGETSR` bit).
++#[cfg(not(feature = "r5-1"))]
++pub const GIC_CPU_TARGET: u8 = 1 << 0;
++/// This core's CPU interface on the RPU GIC (its `ITARGETSR` bit).
++#[cfg(feature = "r5-1")]
++pub const GIC_CPU_TARGET: u8 = 1 << 1;
+ /// The host's IPI agent mask. Mainline `zynqmp.dtsi` puts the APU on
+ /// channel 0 (`xlnx,ipi-id = <0>`). Older Xilinx device trees use channel 7:
+ /// `0x0100_0000`.
+@@ -62,6 +90,15 @@ mod tests {
+         }
+     }
+ 
++    #[test]
++    fn shared_memory_fits_the_device_tree_carveouts() {
++        // R5_0's vrings and buffers end before rproc_1_fw_image, R5_1's
++        // where the uncached window ends.
++        let end = SHM_BASE as u64 + SHM_SIZE as u64;
++        let limit: u64 = if cfg!(feature = "r5-1") { 0x3F00_0000 } else { 0x3EF0_0000 };
++        assert!(end <= limit, "shared memory ends at {end:#x}");
++    }
++
+     #[test]
+     fn trace_buffer_is_in_the_firmware_carveout() {
+         assert!(TRACE_DA >= FW_DDR_BASE + 0x1000, "after the resource table");
+diff --git a/examples/zynqmp-r5-echo/src/hw.rs b/examples/zynqmp-r5-echo/src/hw.rs
+index 5ea001a..ed6b754 100644
+--- a/examples/zynqmp-r5-echo/src/hw.rs
++++ b/examples/zynqmp-r5-echo/src/hw.rs
+@@ -17,8 +17,8 @@ use zynqmp_r5_echo::ipi;
+ pub static KICKED: AtomicBool = AtomicBool::new(false);
+ 
+ fn rd(base: u32, off: u32) -> u32 {
+-    // SAFETY: fixed SoC registers of the RPU (IPI channel 1, RPU GIC), owned
+-    // by this core.
++    // SAFETY: fixed SoC registers of the RPU (this core's IPI channel, RPU
++    // GIC), owned by this core.
+     unsafe { read_volatile((base + off) as usize as *const u32) }
+ }
+ 
+@@ -34,11 +34,11 @@ fn wr8(base: u32, off: u32, v: u8) {
+     unsafe { write_volatile((base + off) as usize as *mut u8, v) }
+ }
+ 
+-/// Routes IPI channel 1 to this core and enables the host as a source.
++/// Routes this core's IPI channel to it and enables the host as a source.
+ #[cfg(not(feature = "qemu"))]
+ pub fn init_irq() {
+     wr8(GICD_BASE, gic::ipriorityr(IPI_IRQ), 0xA0);
+-    wr8(GICD_BASE, gic::itargetsr(IPI_IRQ), 0x01); // R5_0
++    wr8(GICD_BASE, gic::itargetsr(IPI_IRQ), GIC_CPU_TARGET);
+     let (off, bit) = gic::isenabler(IPI_IRQ);
+     wr(GICD_BASE, off, bit);
+     wr(GICD_BASE, gic::GICD_CTLR, 1);
+diff --git a/examples/zynqmp-r5-echo/src/main.rs b/examples/zynqmp-r5-echo/src/main.rs
+index d8a7720..53a784a 100644
+--- a/examples/zynqmp-r5-echo/src/main.rs
++++ b/examples/zynqmp-r5-echo/src/main.rs
+@@ -1,13 +1,13 @@
+ // SPDX-License-Identifier: BSD-3-Clause
+-//! rpmsg echo firmware for the Cortex-R5F (R5_0) of a Zynq UltraScale+
+-//! MPSoC, with Linux on the A53s.
++//! rpmsg echo firmware for a Cortex-R5F (R5_0, or R5_1 with the `r5-1`
++//! feature) of a Zynq UltraScale+ MPSoC, with Linux on the A53s.
+ //!
+ //! Linux (`xlnx_r5_remoteproc`) loads this ELF into the TCMs and the
+ //! `rproc_0_fw_image` carve-out, finds `.resource_table`, allocates the
+ //! vrings from the `vdev0vring*` carve-outs and boots the R5 from 0. The
+ //! firmware announces `rpmsg-tty`, so Linux creates `/dev/ttyRPMSG0`, and
+-//! everything written there comes back. Notifications use IPI channel 1
+-//! (this core) and the host's channel; `stop` is a reset by Linux, so the
++//! everything written there comes back. Notifications use this core's IPI
++//! channel (1 for R5_0, 2 for R5_1) and the host's channel; `stop` is a reset by Linux, so the
+ //! firmware needs no stop protocol.
+ #![no_std]
+ #![no_main]
+@@ -45,6 +45,21 @@ resource_table! {
+     };
+ }
+ 
++/// Reset handler, replacing aarch32-rt's `_default_start`: that one takes
++/// the core ID from MPIDR and parks every core but 0, but in split mode each
++/// R5 runs its own image from its own TCMs, so R5_1 (MPIDR affinity 1) is
++/// core 0 of its program too. Initialise `.data`/`.bss`, then start up with
++/// core ID 0 (its stacks).
++#[unsafe(naked)]
++#[unsafe(no_mangle)]
++pub unsafe extern "C" fn _start() {
++    core::arch::naked_asm!(
++        "bl _asm_init_segments",
++        "mov r0, #0",
++        "b _asm_core_start",
++    );
++}
++
+ /// Busy-wait used while waiting for the host (only paces the loop).
+ fn delay_us(us: u32) {
+     // Without the IPI interrupt (QEMU), keep acknowledging kicks while
+-- 
+2.34.1
+

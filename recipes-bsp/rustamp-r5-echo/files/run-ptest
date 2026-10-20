@@ -1,0 +1,18 @@
+#!/bin/sh
+# ptest entry point: start the RustAmp Cortex-R5F firmware on both R5s, run
+# the rpmsg echo test on both at once and reload them twice, then measure
+# latency and throughput (informational; fails only on broken echoes).
+# Prints PASS:/FAIL: lines for ptest-runner.
+cd "$(dirname "$0")"
+if python3 ./rpmsg_echo_test.py; then
+    echo "PASS: rustamp-r5-echo"
+else
+    echo "FAIL: rustamp-r5-echo"
+    exit 1
+fi
+if python3 ./rpmsg_bench.py; then
+    echo "PASS: rustamp-r5-echo-bench"
+else
+    echo "FAIL: rustamp-r5-echo-bench"
+    exit 1
+fi

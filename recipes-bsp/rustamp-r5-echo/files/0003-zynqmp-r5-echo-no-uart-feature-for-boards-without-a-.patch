@@ -1,0 +1,72 @@
+From 8fb0310d45193fcbcadda284b5033adec4657c87 Mon Sep 17 00:00:00 2001
+From: Eicke Hecht <eicke.hecht@gmail.com>
+Date: Tue, 20 Oct 2026 10:49:25 +0200
+Subject: [PATCH 3/4] zynqmp-r5-echo: no-uart feature for boards without a
+ spare UART
+
+The Trenz TE0820 has only UART0 on MIO, and it is Linux's console; UART1
+is neither routed nor clocked. With --features no-uart the firmware
+never touches the UART and logs only to the remoteproc trace buffer.
+
+Upstream-Status: Pending [RustAmp]
+---
+ examples/zynqmp-r5-echo/Cargo.toml  |  4 ++++
+ examples/zynqmp-r5-echo/src/uart.rs | 15 +++++++++++----
+ 2 files changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/examples/zynqmp-r5-echo/Cargo.toml b/examples/zynqmp-r5-echo/Cargo.toml
+index 3ea1347..936ea59 100644
+--- a/examples/zynqmp-r5-echo/Cargo.toml
++++ b/examples/zynqmp-r5-echo/Cargo.toml
+@@ -21,6 +21,10 @@ aarch32-cpu = { version = "0.4", features = ["critical-section-single-core"] }
+ default = ["zcu102"]
+ # ZCU102: R5 debug output on UART1 (Linux has UART0).
+ zcu102 = []
++# No debug UART, log only to the remoteproc trace buffer: for boards whose
++# spare UART is neither routed nor clocked (Trenz TE0820: only UART0, Linux's
++# console, is on MIO).
++no-uart = []
+ # AMD/Xilinx QEMU's ZCU102 model: it has no RPU GIC (the node is disabled in
+ # its hardware device tree), so poll IPI channel 1 instead of taking its
+ # interrupt. Everything else is the same as on hardware.
+diff --git a/examples/zynqmp-r5-echo/src/uart.rs b/examples/zynqmp-r5-echo/src/uart.rs
+index 3ecf3cb..3180961 100644
+--- a/examples/zynqmp-r5-echo/src/uart.rs
++++ b/examples/zynqmp-r5-echo/src/uart.rs
+@@ -5,6 +5,8 @@
+ //! The UART must already be clocked and its baud rate set (by the boot
+ //! firmware; with Linux running, `clk_ignore_unused` keeps an unused UART's
+ //! clock on). This code only enables the transmitter and writes.
++//! With the `no-uart` feature it never touches the UART and logs only to
++//! the trace buffer.
+ 
+ use core::fmt;
+ use core::ptr::{read_volatile, write_volatile};
+@@ -24,15 +26,20 @@ fn reg(off: u32) -> *mut u32 {
+ 
+ /// Enables the transmitter.
+ pub fn init() {
++    if cfg!(feature = "no-uart") {
++        return;
++    }
+     // SAFETY: the UART is left to the R5 (Linux does not use it).
+     unsafe { write_volatile(reg(CR), CR_TXEN | CR_RXEN) };
+ }
+ 
+ fn put(b: u8) {
+-    // SAFETY: as in `init`.
+-    unsafe {
+-        while read_volatile(reg(SR)) & SR_TXFULL != 0 {}
+-        write_volatile(reg(FIFO), b as u32);
++    if !cfg!(feature = "no-uart") {
++        // SAFETY: as in `init`.
++        unsafe {
++            while read_volatile(reg(SR)) & SR_TXFULL != 0 {}
++            write_volatile(reg(FIFO), b as u32);
++        }
+     }
+     crate::trace::put(b);
+ }
+-- 
+2.34.1
+
