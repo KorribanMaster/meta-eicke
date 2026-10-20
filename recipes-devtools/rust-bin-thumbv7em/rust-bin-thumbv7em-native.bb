@@ -1,9 +1,10 @@
 SUMMARY = "Prebuilt Rust toolchain (rustc + cargo) with bare-metal ARM core/alloc"
 DESCRIPTION = "Official prebuilt rustc/cargo from static.rust-lang.org plus the \
-x86_64 host std (for build.rs) and the thumbv7em-none-eabihf and \
-armv7a-none-eabi core/alloc, staged into the native sysroot as a build-only \
-toolchain. Used to compile bare-metal Cortex-M7 firmware (rustamp-m7-echo) and \
-Cortex-A9 firmware (rustamp-a9-echo): OE's rust-native only builds std for \
+x86_64 host std (for build.rs) and the thumbv7em-none-eabihf, \
+armv7a-none-eabi and armv7r-none-eabihf core/alloc, staged into the native \
+sysroot as a build-only toolchain. Used to compile bare-metal Cortex-M7 \
+firmware (rustamp-m7-echo), Cortex-A9 firmware (rustamp-a9-echo) and \
+Cortex-R5F firmware (rustamp-r5-echo): OE's rust-native only builds std for \
 the host and targets OE knows, not bare-metal no_std targets. Never shipped in \
 any image."
 
@@ -24,6 +25,7 @@ RUST_COMPONENTS = " \
     rust-std-${PV}-${HOST_TRIPLE} \
     rust-std-${PV}-thumbv7em-none-eabihf \
     rust-std-${PV}-armv7a-none-eabi \
+    rust-std-${PV}-armv7r-none-eabihf \
 "
 SRC_URI = " \
     https://static.rust-lang.org/dist/rustc-${PV}-${HOST_TRIPLE}.tar.xz;name=rustc \
@@ -31,12 +33,14 @@ SRC_URI = " \
     https://static.rust-lang.org/dist/rust-std-${PV}-${HOST_TRIPLE}.tar.xz;name=std-host \
     https://static.rust-lang.org/dist/rust-std-${PV}-thumbv7em-none-eabihf.tar.xz;name=std-thumbv7em \
     https://static.rust-lang.org/dist/rust-std-${PV}-armv7a-none-eabi.tar.xz;name=std-armv7a \
+    https://static.rust-lang.org/dist/rust-std-${PV}-armv7r-none-eabihf.tar.xz;name=std-armv7r \
 "
 SRC_URI[rustc.sha256sum] = "0a6b16ca476461c6238f48efcb74a7aa08a3983e61adf587f208ba48504d87e1"
 SRC_URI[cargo.sha256sum] = "03595624775204f80ff3a67986f69c8918e4cd311877ced635108888013a1e39"
 SRC_URI[std-host.sha256sum] = "74109ee2c19098f1d7122087dd338a8f643203b3ce678c9d58169db733e17a03"
 SRC_URI[std-thumbv7em.sha256sum] = "b8ad781fd218c186773e8d7693d10a63288d04947d0119e4ed9e75336e568997"
 SRC_URI[std-armv7a.sha256sum] = "aca338cb24a2b8032d698bc8c65acd2385a04783de51bf5d14861c81d73f50b2"
+SRC_URI[std-armv7r.sha256sum] = "7c0408326a7dae07773453c1e4eaa3098c786e5dec846fc0bd1f741bc96e541d"
 
 S = "${UNPACKDIR}"
 
