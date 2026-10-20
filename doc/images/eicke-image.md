@@ -33,7 +33,11 @@ Produced from `wic/eicke-ab.wks.in` (GPT):
 | 4 | `data`     | ext4 | persistent data / update state |
 
 The image fstab mounts the ESP at `/boot` and the data partition at `/data` on
-**every** slot, so the GRUB environment is always reachable.
+**every** slot, so the GRUB environment is always reachable. These are the
+only mounts: wic adds none of its own (`--no-fstab-update` in
+`WIC_CREATE_EXTRA_ARGS`; on a `part` line that option only keeps the
+updated fstab out of that partition, it does not leave the partition out of
+the rootfs fstab).
 
 ## Notes
 

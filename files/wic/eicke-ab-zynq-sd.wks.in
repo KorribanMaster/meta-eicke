@@ -21,7 +21,9 @@
 # slot's kernel (/boot/zImage or /boot/Image) and DTB. Each `part` directive MUST be on a single line.
 
 bootloader --ptable msdos
-# --no-fstab-update on esp/data: the rootfs /etc/fstab provides these mounts
+# wic adds no fstab entries (--no-fstab-update in WIC_CREATE_EXTRA_ARGS,
+# eicke-image.bb; on a part it only keeps the updated fstab out of that
+# partition): the rootfs /etc/fstab provides these mounts
 # itself (see eicke-image.bb), consistently in every A/B slot.
 part /boot --source bootimg-partition --label esp --fstype=vfat --active --align 1024 --size 64 --use-uuid --no-fstab-update
 part / --source rootfs --label ${ROOTFS_A_LABEL} --fstype=ext4 --align 1024 --fixed-size 1024 --use-uuid

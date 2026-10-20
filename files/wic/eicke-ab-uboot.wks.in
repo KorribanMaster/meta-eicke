@@ -15,7 +15,9 @@
 # eicke-ab-u-boot.inc). Each `part` directive MUST be on a single line.
 
 bootloader --ptable gpt
-# --no-fstab-update on esp/data: the rootfs /etc/fstab provides these mounts
+# wic adds no fstab entries (--no-fstab-update in WIC_CREATE_EXTRA_ARGS,
+# eicke-image.bb; on a part it only keeps the updated fstab out of that
+# partition): the rootfs /etc/fstab provides these mounts
 # itself (see eicke-image.bb), so every A/B slot — including images swupdate
 # writes raw to a standby slot — mounts the boot partition at /boot (for
 # uboot.env) and the data partition consistently.

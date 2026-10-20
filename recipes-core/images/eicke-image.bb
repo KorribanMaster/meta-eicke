@@ -66,3 +66,8 @@ fstab_add_eicke_mounts() {
 EOF
 }
 ROOTFS_POSTPROCESS_COMMAND += "fstab_add_eicke_mounts;"
+# ...and keep wic from appending its own UUID= lines for the partitions
+# with a mountpoint (/boot, /data) to the rootfs fstab: they would
+# duplicate the mounts above. A part's --no-fstab-update does not prevent
+# that, it only keeps the updated fstab out of that partition.
+WIC_CREATE_EXTRA_ARGS += "--no-fstab-update"
