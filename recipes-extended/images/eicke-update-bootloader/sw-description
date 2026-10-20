@@ -1,0 +1,48 @@
+/*
+ * SWUpdate description for the eicke bootloader update (te0820).
+ *
+ * Writes the new boot.bin and u-boot.itb to the ESP (mounted at /boot) as
+ * *.new; eicke-bootloader-swap.sh checks that the ESP is there before, and
+ * swaps the files in after (u-boot.itb first, boot.bin last), keeping the
+ * previous ones as *.old. The A/B state (rootdev, ustate) is not touched;
+ * the new bootloader runs from the next boot on (no trial, no rollback:
+ * the bootloader is not A/B).
+ *
+ *     swupdate -i eicke-update-bootloader-<machine>.rootfs.swu
+ *     curl -F filename=@eicke-update-bootloader-<machine>.rootfs.swu http://<target>:8080/upload
+ */
+software =
+{
+    version = "1.0";
+    description = "Eicke bootloader update (boot.bin, u-boot.itb)";
+
+    hardware-compatibility: [ "@@MACHINE@@" ];
+
+    /* Leave the A/B state alone: by default SWUpdate sets ustate (its
+     * bootloader state marker) to 1 after an install, which the bootcmd
+     * would take for a trial of the running slot, and writes its
+     * recovery_status transaction marker. */
+    bootloader_state_marker = false;
+    bootloader_transaction_marker = false;
+
+    files: (
+        {
+            filename = "u-boot.itb";
+            path = "/boot/u-boot.itb.new";
+            sha256 = "$swupdate_get_sha256(u-boot.itb)";
+        },
+        {
+            filename = "boot.bin";
+            path = "/boot/boot.bin.new";
+            sha256 = "$swupdate_get_sha256(boot.bin)";
+        }
+    );
+
+    scripts: (
+        {
+            filename = "eicke-bootloader-swap.sh";
+            type = "shellscript";
+            sha256 = "$swupdate_get_sha256(eicke-bootloader-swap.sh)";
+        }
+    );
+}
