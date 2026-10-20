@@ -83,6 +83,37 @@
 	status = "okay";
 };
 
+/*
+ * System monitor, PS block (LPD/FPD temperatures and supplies): without it
+ * xilinx-ams registers no channels and the APU/RPU thermal zones of
+ * zynqmp.dtsi (channels 7 and 8) fail to probe. The PL block is only
+ * accessible once the PL is configured, which this PS-only design never
+ * does, so ams_pl stays disabled and the PL sensor and its thermal zone
+ * (channel 20) are dropped.
+ */
+&ams_ps {
+	status = "okay";
+};
+
+/* hwmon over the PS block's 20 channels only (zynqmp.dtsi lists PS + PL). */
+&{/ams} {
+	io-channels = <&xilinx_ams 0>, <&xilinx_ams 1>, <&xilinx_ams 2>,
+		      <&xilinx_ams 3>, <&xilinx_ams 4>, <&xilinx_ams 5>,
+		      <&xilinx_ams 6>, <&xilinx_ams 7>, <&xilinx_ams 8>,
+		      <&xilinx_ams 9>, <&xilinx_ams 10>, <&xilinx_ams 11>,
+		      <&xilinx_ams 12>, <&xilinx_ams 13>, <&xilinx_ams 14>,
+		      <&xilinx_ams 15>, <&xilinx_ams 16>, <&xilinx_ams 17>,
+		      <&xilinx_ams 18>, <&xilinx_ams 19>;
+};
+
+/ {
+	/delete-node/ thermal-sensor-pl;
+
+	thermal-zones {
+		/delete-node/ pl-thermal;
+	};
+};
+
 &gpio {
 	status = "okay";
 };
