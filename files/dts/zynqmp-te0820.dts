@@ -222,6 +222,17 @@
 	status = "okay";
 };
 
+/*
+ * FPD system watchdog, fed by systemd (eicke-watchdog). zynqmp.dtsi has it
+ * reset-on-timeout, but that output only resets the APU; the system reset
+ * (and with it U-Boot's A/B rollback of a hung trial boot) comes from the
+ * PMU firmware's error manager, which SPL arms (GEN_STORAGE5, see the U-Boot
+ * patch).
+ */
+&watchdog0 {
+	status = "okay";
+};
+
 &sdhci0 {
 	status = "okay";
 	bus-width = <8>;

@@ -68,6 +68,7 @@ SRC_URI:append:te0820 = " \
     file://te0820/elf2bin.py \
     file://te0820/eicke-te0820.cfg \
     file://te0820/0001-zynqmp-eicke-env-flags-whitelist.patch \
+    file://te0820/0002-arm64-zynqmp-spl-signal-boot-loader-completion-to-PMU.patch \
 "
 
 DEPENDS:append:te0820 = " trusted-firmware-a"

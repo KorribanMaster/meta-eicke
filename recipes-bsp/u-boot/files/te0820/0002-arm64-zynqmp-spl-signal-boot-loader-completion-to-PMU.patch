@@ -1,0 +1,47 @@
+From: Eicke Hecht <eicke.hecht@gmail.com>
+Subject: [PATCH] arm64: zynqmp: spl: signal boot loader completion to the PMU
+ firmware
+
+SPL replaces the Xilinx FSBL, which sets GEN_STORAGE5 bit 0 (completion)
+and bits [2:1] = 1 (running on the A53) when it hands off. PMU firmware
+with its error manager (ENABLE_EM) polls for this flag before it sets the
+LPD/FPD SWDT error action to system reset; without it, a watchdog timeout
+only resets the APU (the SWDT's own reset output) and nothing reboots the
+system. Set the flag in spl_board_prepare_for_boot(), right before SPL
+jumps to TF-A.
+
+Upstream-Status: Pending
+---
+--- a/arch/arm/mach-zynqmp/include/mach/hardware.h
++++ b/arch/arm/mach-zynqmp/include/mach/hardware.h
+@@ -186,7 +186,7 @@
+ struct pmu_regs {
+ 	u32 reserved0[16];
+ 	u32 gen_storage4; /* 0x40 */
+-	u32 reserved1[1];
++	u32 gen_storage5; /* 0x44 */
+ 	u32 gen_storage6; /* 0x48 */
+ 	u32 reserved2[3];
+ 	u32 pers_gen_storage2; /* 0x58 */
+--- a/arch/arm/mach-zynqmp/spl.c
++++ b/arch/arm/mach-zynqmp/spl.c
+@@ -133,6 +133,19 @@
+ 	return 0;
+ }
+ 
++/*
++ * Tell the PMU firmware that the first stage boot loader has finished, as
++ * the Xilinx FSBL does when it hands off: GEN_STORAGE5 bit 0 (completion)
++ * and bits [2:1] = 1 (it ran on the A53). PMU firmware built with its error
++ * manager (ENABLE_EM) waits for this before it routes LPD/FPD SWDT timeouts
++ * to a system reset, so a watchdog started later (by Linux) resets the whole
++ * system instead of only the APU.
++ */
++void spl_board_prepare_for_boot(void)
++{
++	setbits_le32(&pmu_base->gen_storage5, BIT(0) | BIT(1));
++}
++
+ #ifdef CONFIG_SPL_OS_BOOT
+ int spl_start_uboot(void)
+ {

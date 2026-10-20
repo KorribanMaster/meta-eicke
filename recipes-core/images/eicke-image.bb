@@ -43,9 +43,11 @@ IMAGE_INSTALL:append:ccimx8mn-dvk = " rustamp-m7-echo kernel-devicetree"
 # ALINX AX7015B: the RustAmp Cortex-A9 firmware for CPU1 (pulls in the
 # a9-rproc driver), and the DTB in each slot's /boot, like ccimx8mn-dvk.
 IMAGE_INSTALL:append:ax7015b = " rustamp-a9-echo kernel-devicetree"
-# Trenz TE0820: the RustAmp firmware for both Cortex-R5Fs, and the DTB in
-# each slot's /boot, like ccimx8mn-dvk.
-IMAGE_INSTALL:append:te0820 = " rustamp-r5-echo kernel-devicetree"
+# Trenz TE0820: the RustAmp firmware for both Cortex-R5Fs, the DTB in each
+# slot's /boot, like ccimx8mn-dvk, and the systemd-fed watchdog (its SWDT
+# timeout resets the system through the PMU firmware, so a hung trial boot
+# rolls back).
+IMAGE_INSTALL:append:te0820 = " rustamp-r5-echo kernel-devicetree eicke-watchdog"
 
 # Bootloader-specific half of the A/B scheme (env seeding, env tooling, boot
 # script/config wiring). x86/EFI machines default to GRUB; qemuarm-uboot sets
