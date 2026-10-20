@@ -50,13 +50,17 @@ do_configure:prepend:ax7015b() {
 # the board device tree (files/dts, shared with the kernel) and, from the Trenz
 # 2024.2 reference design (2cg_1e_2gb prebuilt, see doc/machines/te0820.md for
 # why it fits the 1 GiB REV02 module), the PS init (DDR, clocks, MIO) that SPL
-# builds in instead of a Xilinx FSBL, the PMU firmware boot.bin carries and the
-# PM configuration object SPL hands to it. eicke-te0820.cfg moves the env to
-# uboot.env on the microSD and compiles in the A/B bootcmd; the patch
-# whitelists the env variables. TF-A (meta-arm) goes into u-boot.itb as BL31.
+# builds in instead of a Xilinx FSBL and the PM configuration object SPL hands
+# to the PMU firmware. The PMU firmware boot.bin carries is 2025.2, built from
+# the design's XSA (TF-A 2.14 needs it, see the doc). The -u-boot.dtsi keeps
+# U-Boot's mmc numbering in hardware order (SPL boots SD1 as mmc 1).
+# eicke-te0820.cfg moves the env to uboot.env on the microSD and compiles in
+# the A/B bootcmd; the patch whitelists the env variables. TF-A (meta-arm)
+# goes into u-boot.itb as BL31.
 FILESEXTRAPATHS:prepend:te0820 := "${THISDIR}/../../files/dts:"
 SRC_URI:append:te0820 = " \
     file://zynqmp-te0820.dts \
+    file://te0820/zynqmp-te0820-u-boot.dtsi \
     file://te0820/psu_init_gpl.c \
     file://te0820/psu_init_gpl.h \
     file://te0820/pmufw.elf \
@@ -74,7 +78,8 @@ EXTRA_OEMAKE:append:te0820 = " BL31=${RECIPE_SYSROOT}/firmware/trusted-firmware-
 # ZynqMP board Makefile looks up by CONFIG_DEFAULT_DEVICE_TREE. pmufw.elf is
 # flattened to the raw image mkimage packs into boot.bin.
 do_configure:prepend:te0820() {
-    install -m 0644 ${UNPACKDIR}/zynqmp-te0820.dts ${S}/arch/arm/dts/
+    install -m 0644 ${UNPACKDIR}/zynqmp-te0820.dts \
+        ${UNPACKDIR}/te0820/zynqmp-te0820-u-boot.dtsi ${S}/arch/arm/dts/
     grep -q 'zynqmp-te0820\.dtb' ${S}/arch/arm/dts/Makefile || \
         sed -i 's/^dtb-$(CONFIG_ARCH_ZYNQMP) += \\$/&\n\tzynqmp-te0820.dtb \\/' ${S}/arch/arm/dts/Makefile
     grep -q 'zynqmp-te0820\.dtb' ${S}/arch/arm/dts/Makefile || bbfatal "zynqmp-te0820.dtb not added to arch/arm/dts/Makefile"

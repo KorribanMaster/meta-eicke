@@ -58,6 +58,27 @@
 	};
 };
 
+/*
+ * The XCZU2CG has two Cortex-A53 cores; zynqmp.dtsi describes four. Drop
+ * cpu2/cpu3 and everything that points at them (PSCI would otherwise try to
+ * bring them up and fail).
+ */
+/delete-node/ &cpu2;
+/delete-node/ &cpu3;
+/delete-node/ &cpu2_debug;
+/delete-node/ &cpu3_debug;
+
+&{/pmu} {
+	interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH>;
+	interrupt-affinity = <&cpu0>, <&cpu1>;
+};
+
+&{/thermal-zones/apu-thermal/cooling-maps/map} {
+	cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+			 <&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+};
+
 &uart0 {
 	status = "okay";
 };

@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * U-Boot-only additions to zynqmp-te0820.dts (picked up automatically as
+ * <dts>-u-boot.dtsi; it replaces the SoC's zynqmp-u-boot.dtsi, so that one is
+ * included here for the binman node u-boot.itb is built from).
+ *
+ * SPL maps the boot ROM's SD1 boot mode to BOOT_DEVICE_MMC2, i.e. mmc device
+ * 1, so in U-Boot the controllers keep their hardware order: mmc0 = sdhci0
+ * (eMMC), mmc1 = sdhci1 (microSD). The eicke env and bootcmd use mmc 1
+ * (eicke-te0820.cfg). Linux keeps the dts aliases (mmc0 = microSD).
+ */
+
+#include "zynqmp-u-boot.dtsi"
+
+/ {
+	aliases {
+		mmc0 = &sdhci0;
+		mmc1 = &sdhci1;
+	};
+};
