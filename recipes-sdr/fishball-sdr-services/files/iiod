@@ -1,0 +1,5 @@
+# Read by iiod.service (EnvironmentFile). Serve libiio over the network (TCP
+# 30431, announced over Avahi) and over USB through the gadget's FunctionFS
+# function, with Pluto's options: demux the buffers between clients (-D),
+# three USB pipes (-n 3).
+IIOD_EXTRA_OPTS="-D -n 3 -F /dev/iio_ffs"

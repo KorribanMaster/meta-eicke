@@ -1,0 +1,14 @@
+[Unit]
+Description=Apply the AD936x runtime settings from uboot.env (xo_correction, DMA block size)
+RequiresMountsFor=/boot
+After=local-fs.target
+# Before clients can open buffers.
+Before=iiod.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/ad936x-config
+
+[Install]
+WantedBy=multi-user.target

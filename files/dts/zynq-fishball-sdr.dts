@@ -1,0 +1,128 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Fish Ball SDR (7020_AD936X_SDR): XC7Z020-2CLG400, 1 GiB DDR3L, an AD936x
+ * transceiver in the PL, RTL8211E Ethernet, USB3320C OTG, microSD. Close to
+ * an ADALM-Pluto.
+ *
+ * PS peripherals only. One file for both U-Boot (copied to arch/arm/dts) and
+ * Linux (copied to arch/arm/boot/dts/xilinx, where
+ * zynq-fishball-sdr-ad936x.dts adds the PL design and the AD936x); each tree
+ * ships its own zynq-7000.dtsi. DDR, clocks and the MIO muxing are set up by
+ * ps7_init in U-Boot SPL, hence no pinctrl nodes. MIO assignment (vendor
+ * design system_top.xsa, schematic 7020_936x_SDR.pdf):
+ *   0 LED, 1..6 QSPI, 8..9 UART1, 16..27 GEM0 RGMII, 28..39 USB0 ULPI,
+ *   40..45 SD0 (microSD), 46 USB PHY reset, 52..53 GEM0 MDIO.
+ */
+/dts-v1/;
+#include "zynq-7000.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	model = "Fish Ball SDR (Z7020/AD936x)";
+	compatible = "fishball,sdr-7020", "xlnx,zynq-7000";
+
+	aliases {
+		ethernet0 = &gem0;
+		mmc0 = &sdhci0;
+		serial0 = &uart1;
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x40000000>;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	/* The white LED on MIO0 (the schematic's White1). */
+	leds {
+		compatible = "gpio-leds";
+
+		led-0 {
+			label = "led0:white";
+			gpios = <&gpio0 0 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
+	/* USB3320C ULPI transceiver; its reset is the MIO46 hog below. */
+	usb_phy0: phy0 {
+		compatible = "usb-nop-xceiv";
+		#phy-cells = <0>;
+	};
+};
+
+&clkc {
+	ps-clk-frequency = <33333333>;
+};
+
+/*
+ * USB3320C reset (OTG_RST, MIO46, active low) released as soon as the GPIO
+ * controller probes, for the same reason as on ax7015b: as reset-gpios of the
+ * usb-nop-xceiv it is only released right before ChipIdea's own reset, while
+ * the ULPI clock is not running yet.
+ */
+&gpio0 {
+	usb-phy-reset-hog {
+		gpio-hog;
+		gpios = <46 GPIO_ACTIVE_LOW>;
+		output-low;
+		line-name = "usb-phy-reset";
+	};
+};
+
+/*
+ * RTL8211E. Its PHYAD straps give MDIO address 1, and it also answers on the
+ * broadcast address 0 (which the vendor device trees use). The RGMII delays
+ * are strapped in the PHY. Its reset is tied to PS_POR_B: no reset GPIO.
+ */
+&gem0 {
+	status = "okay";
+	phy-mode = "rgmii-id";
+	phy-handle = <&ethernet_phy>;
+
+	ethernet_phy: ethernet-phy@1 {
+		reg = <1>;
+	};
+};
+
+/*
+ * microSD: boot device, eicke A/B disk. SD0 runs at 1.8 V behind a TXS02612
+ * level shifter to the 3.3 V card, so no UHS signalling; card detect and
+ * write protect are not wired.
+ */
+&sdhci0 {
+	bootph-all;
+	status = "okay";
+	no-1-8-v;
+	broken-cd;
+	disable-wp;
+};
+
+/* Console: channel B of the FT2232HL on the "JTAG" USB-C port. */
+&uart1 {
+	bootph-all;
+	status = "okay";
+};
+
+/*
+ * OTG port (USB-C). The USB3320C's CPEN switches 5 V out to the port in host
+ * mode. As a device it carries the Pluto-style gadget (fishball-sdr-gadget).
+ */
+&usb0 {
+	status = "okay";
+	dr_mode = "otg";
+	usb-phy = <&usb_phy0>;
+};
+
+/*
+ * System watchdog, started by U-Boot and fed by systemd (eicke-watchdog). A
+ * timeout resets the whole PS, so the boot ROM starts over and U-Boot rolls
+ * back a hung trial boot.
+ */
+&watchdog0 {
+	status = "okay";
+	reset-on-timeout;
+};

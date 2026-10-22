@@ -1,0 +1,18 @@
+# The USB gadget's network interface, as on an ADALM-Pluto: the board is
+# 192.168.2.1 and hands the host an address from the same /24 (80-dhcp.network
+# only matches en*/eth*).
+[Match]
+Name=usb0
+
+[Network]
+Address=192.168.2.1/24
+DHCPServer=yes
+# IPv4 only on the point-to-point USB link.
+LinkLocalAddressing=no
+IPv6AcceptRA=no
+
+[DHCPServer]
+PoolOffset=10
+PoolSize=10
+EmitDNS=no
+EmitRouter=no

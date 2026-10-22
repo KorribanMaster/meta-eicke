@@ -1,0 +1,14 @@
+[Unit]
+Description=Bind the Fish Ball SDR USB gadget to the USB device controller
+Requires=fishball-sdr-gadget.service
+After=fishball-sdr-gadget.service iiod.service
+# Rebind when iiod restarts (it re-creates the FunctionFS endpoints).
+PartOf=iiod.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/fishball-sdr-gadget bind
+
+[Install]
+WantedBy=multi-user.target

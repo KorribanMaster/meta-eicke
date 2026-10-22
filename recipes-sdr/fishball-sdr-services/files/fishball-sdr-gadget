@@ -1,0 +1,99 @@
+#!/bin/sh
+# Pluto-style USB gadget on the Fish Ball SDR's OTG port, after ADI pluto-fw's
+# board/pluto/S23udc: USB networking (RNDIS, or ECM/NCM), an ACM console and
+# a FunctionFS function for iiod's USB backend, in one configuration.
+#
+#   fishball-sdr-gadget setup   create the gadget and mount /dev/iio_ffs
+#                               (before iiod opens it)
+#   fishball-sdr-gadget bind    bind it to the UDC, once iiod has written
+#                               its FunctionFS descriptors
+#   fishball-sdr-gadget stop    unbind and remove it
+#
+# It uses Pluto's USB IDs (0456:b673), so the host's PlutoSDR drivers and
+# libiio's USB discovery (iio_info -u usb:) treat it as one. The network mode
+# is Pluto's usb_ethernet_mode (fw_setenv usb_ethernet_mode rndis|ecm|ncm).
+set -e
+
+GADGET=/sys/kernel/config/usb_gadget/fishball_sdr
+FFS=/dev/iio_ffs
+VID=0x0456
+PID=0xb673
+PRODUCT="PlutoSDR (ADALM-PLUTO)"
+MANUFACTURER="Analog Devices Inc."
+
+case "$(fw_printenv -n usb_ethernet_mode 2>/dev/null || true)" in
+    ecm) NET=ecm.usb0 ;;
+    ncm) NET=ncm.usb0 ;;
+    *)   NET=rndis.usb0 ;;
+esac
+
+# The board MAC (uboot.env, fishball-sdr-mac) is the serial number and seeds
+# the USB network MACs, so they stay the same across reboots and A/B slots.
+board_mac() {
+    fw_printenv -n ethaddr 2>/dev/null || cat /sys/class/net/eth0/address
+}
+
+# Locally administered unicast MAC from 5 bytes of a hash: 02:xx:xx:xx:xx:xx.
+mac_from() {
+    echo "$1" | sha1sum | sed -E 's/^(..)(..)(..)(..)(..).*/02:\1:\2:\3:\4:\5/'
+}
+
+setup() {
+    [ -d $GADGET ] && return 0
+    serial=$(board_mac | tr -d ':' | tr 'A-F' 'a-f')
+
+    mkdir -p $GADGET
+    echo $VID > $GADGET/idVendor
+    echo $PID > $GADGET/idProduct
+    mkdir -p $GADGET/strings/0x409
+    echo "$MANUFACTURER" > $GADGET/strings/0x409/manufacturer
+    echo "$PRODUCT" > $GADGET/strings/0x409/product
+    echo "$serial" > $GADGET/strings/0x409/serialnumber
+
+    mkdir -p $GADGET/functions/$NET $GADGET/functions/acm.usb0 \
+        $GADGET/functions/ffs.iio_ffs
+    mac_from "host-$serial" > $GADGET/functions/$NET/host_addr
+    mac_from "dev-$serial" > $GADGET/functions/$NET/dev_addr
+
+    mkdir -p $GADGET/configs/c.1/strings/0x409
+    echo "RNDIS/ECM/NCM+ACM+IIOUSBD" > $GADGET/configs/c.1/strings/0x409/configuration
+    echo 500 > $GADGET/configs/c.1/MaxPower
+    ln -s $GADGET/functions/$NET $GADGET/configs/c.1/
+    ln -s $GADGET/functions/acm.usb0 $GADGET/configs/c.1/
+    ln -s $GADGET/functions/ffs.iio_ffs $GADGET/configs/c.1/
+
+    mkdir -p $FFS
+    mountpoint -q $FFS || mount -t functionfs iio_ffs $FFS
+}
+
+bind() {
+    # FunctionFS creates the endpoint files once iiod has written its
+    # descriptors to ep0; binding before that fails.
+    i=0
+    while [ ! -e $FFS/ep1 ]; do
+        i=$((i + 1))
+        [ $i -le 100 ] || { echo "iiod did not set up $FFS" >&2; exit 1; }
+        sleep 0.1
+    done
+    udc=$(ls /sys/class/udc | head -n 1)
+    [ -n "$udc" ] || { echo "no USB device controller" >&2; exit 1; }
+    echo "$udc" > $GADGET/UDC
+}
+
+stop() {
+    [ -d $GADGET ] || return 0
+    echo "" > $GADGET/UDC 2>/dev/null || true
+    rm -f $GADGET/configs/c.1/$NET $GADGET/configs/c.1/acm.usb0 \
+        $GADGET/configs/c.1/ffs.iio_ffs
+    rmdir $GADGET/configs/c.1/strings/0x409 $GADGET/configs/c.1
+    umount $FFS 2>/dev/null || true
+    rmdir $GADGET/functions/* 2>/dev/null || true
+    rmdir $GADGET/strings/0x409 $GADGET
+}
+
+case "$1" in
+    setup) setup ;;
+    bind) bind ;;
+    stop) stop ;;
+    *) echo "usage: $0 setup|bind|stop" >&2; exit 1 ;;
+esac

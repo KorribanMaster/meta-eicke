@@ -29,6 +29,7 @@ Add `--junitxml=<file>` for CI.
 | `test_prod_ab.py` | qemuarm-uboot `eicke-image-prod`, verified boot | see below |
 | `test_hardening_x86.py` | qemux86-64 `eicke-image-prod`, Secure Boot | see below; marker `secureboot`, not in the default run |
 | `test_te0820_bootloader.py` | a real te0820 running `eicke-image` | bootloader updates; see below; marker `board`, skipped without `--board` |
+| `test_fishball_sdr.py` | a real fishball-sdr running `eicke-image-sdr` | bitstream, AD936x, RX capture, iiod, USB gadget, variant switch, A/B update, rollback, watchdog; marker `board` |
 
 Each scenario is one test class on one guest, with a test per step (boot,
 update, confirm, rollback). The steps depend on each other: after the first
@@ -85,6 +86,20 @@ Each step reboots and checks the build that came up. The board ends on the
 current build, with the alt build as its fallback. If a step leaves the
 board unbootable, recovery needs the serial console or the card
 ([te0820.md](machines/te0820.md#updating-with-swupdate)).
+
+`test_fishball_sdr.py` runs the same way against a Fish Ball SDR running
+`eicke-image-sdr` (`--build` builds `eicke-update-image-sdr`, the bundle of
+the A/B step). It reboots six times; the steps are listed in the module and
+in [fishball-sdr.md](machines/fishball-sdr.md#test-on-the-board).
+
+```sh
+pytest meta-eicke/scripts/test/test_fishball_sdr.py --board <board> --build
+```
+
+Both use `Board` from [`eicke_board.py`](../scripts/test/eicke_board.py):
+`run`/`out` over SSH, `reboot()`/`wait_up()` (a new boot id, then systemd
+done), `install(swu)` (upload to SWUpdate's web server and wait for its
+log).
 
 ## Writing a test
 

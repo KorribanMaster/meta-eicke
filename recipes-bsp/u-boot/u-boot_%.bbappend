@@ -29,21 +29,49 @@ SRC_URI:append:ax7015b = " \
 # The board's files are not in the U-Boot tree: the DTS goes next to
 # zynq-7000.dtsi (and into the Zynq dtb list), ps7_init_gpl.c/h into the
 # directory the Zynq board Makefile looks up by CONFIG_DEFAULT_DEVICE_TREE.
-do_configure:prepend:ax7015b() {
-    install -m 0644 ${UNPACKDIR}/zynq-ax7015b.dts ${S}/arch/arm/dts/
-    grep -q 'zynq-ax7015b\.dtb' ${S}/arch/arm/dts/Makefile || \
-        sed -i 's/^dtb-$(CONFIG_ARCH_ZYNQ) += \\$/&\n\tzynq-ax7015b.dtb \\/' ${S}/arch/arm/dts/Makefile
-    grep -q 'zynq-ax7015b\.dtb' ${S}/arch/arm/dts/Makefile || bbfatal "zynq-ax7015b.dtb not added to arch/arm/dts/Makefile"
-    install -d ${S}/board/xilinx/zynq/zynq-ax7015b
-    install -m 0644 ${UNPACKDIR}/ax7015b/ps7_init_gpl.c ${UNPACKDIR}/ax7015b/ps7_init_gpl.h \
-        ${S}/board/xilinx/zynq/zynq-ax7015b/
+# Shared by the Zynq-7000 machines. $1: the device tree and board directory
+# name (zynq-<board>), $2: the directory in UNPACKDIR with the board's
+# ps7_init_gpl.c/h.
+eicke_install_zynq_board() {
+    dt=$1
+    install -m 0644 ${UNPACKDIR}/$dt.dts ${S}/arch/arm/dts/
+    grep -q "$dt\.dtb" ${S}/arch/arm/dts/Makefile || \
+        sed -i 's/^dtb-$(CONFIG_ARCH_ZYNQ) += \\$/&\n\t'"$dt"'.dtb \\/' ${S}/arch/arm/dts/Makefile
+    grep -q "$dt\.dtb" ${S}/arch/arm/dts/Makefile || bbfatal "$dt.dtb not added to arch/arm/dts/Makefile"
+    install -d ${S}/board/xilinx/zynq/$dt
+    install -m 0644 ${UNPACKDIR}/$2/ps7_init_gpl.c ${UNPACKDIR}/$2/ps7_init_gpl.h \
+        ${S}/board/xilinx/zynq/$dt/
     # Vivado declares its functions with empty parentheses ("int ps7_init();"),
     # which U-Boot's -Werror=strict-prototypes rejects; the in-tree boards carry
     # copies fixed to (void). Fix the column-0 declarations/definitions here, so
     # the files in the layer stay exactly as Vivado exports them.
     sed -i -E 's/^([A-Za-z_][A-Za-z0-9_ *]*[A-Za-z0-9_]) ?\(\)/\1(void)/' \
-        ${S}/board/xilinx/zynq/zynq-ax7015b/ps7_init_gpl.c \
-        ${S}/board/xilinx/zynq/zynq-ax7015b/ps7_init_gpl.h
+        ${S}/board/xilinx/zynq/$dt/ps7_init_gpl.c \
+        ${S}/board/xilinx/zynq/$dt/ps7_init_gpl.h
+}
+
+do_configure:prepend:ax7015b() {
+    eicke_install_zynq_board zynq-ax7015b ax7015b
+}
+
+# fishball-sdr (Fish Ball SDR, Zynq-7020 + AD936x): as ax7015b, with the PS
+# init from the vendor's system_top.xsa (the handoff of their PetaLinux build,
+# see doc/machines/fishball-sdr.md). eicke-fishball-sdr.cfg moves the env to
+# uboot.env on the microSD, starts the watchdog and compiles in the A/B
+# bootcmd, which also loads the slot's bitstream and applies the AD936x
+# variant; the patch whitelists the env variables (those of ax7015b plus the
+# SDR settings).
+FILESEXTRAPATHS:prepend:fishball-sdr := "${THISDIR}/../../files/dts:"
+SRC_URI:append:fishball-sdr = " \
+    file://zynq-fishball-sdr.dts \
+    file://fishball-sdr/ps7_init_gpl.c \
+    file://fishball-sdr/ps7_init_gpl.h \
+    file://fishball-sdr/eicke-fishball-sdr.cfg \
+    file://fishball-sdr/0001-zynq-eicke-env-flags-whitelist-fishball-sdr.patch \
+"
+
+do_configure:prepend:fishball-sdr() {
+    eicke_install_zynq_board zynq-fishball-sdr fishball-sdr
 }
 
 # te0820 (Trenz TE0820-02, Zynq UltraScale+): xilinx_zynqmp_virt_defconfig plus

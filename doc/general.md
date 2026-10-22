@@ -63,6 +63,7 @@ are described as well.
 - Images — [`images/`](./images/):
   - [eicke-image](./images/eicke-image.md),
   - [eicke-image-dev](./images/eicke-image-dev.md) (debug tools),
+  - [eicke-image-sdr](./images/eicke-image-sdr.md) (Pluto-style SDR stack, fishball-sdr only),
   - [eicke-image-prod](./images/eicke-image-prod.md) (hardened production image),
   - [eicke-image-netboot](./images/eicke-image-netboot.md) (iPXE netboot, qemux86-64 only),
   - [eicke-image-netboot-prod](./images/eicke-image-netboot-prod.md) (Secure Boot: signed iPXE + signed UKI),
@@ -78,4 +79,7 @@ are described as well.
   - [ax7015b](./machines/ax7015b.md) (ALINX AX7015B, Zynq-7000, microSD A/B,
     U-Boot SPL + Cortex-A9 CPU1 / RustAmp),
   - [te0820](./machines/te0820.md) (Trenz TE0820-02 on TE0703, Zynq
-    UltraScale+, microSD A/B, U-Boot SPL + TF-A; needs meta-arm)
+    UltraScale+, microSD A/B, U-Boot SPL + TF-A; needs meta-arm),
+  - [fishball-sdr](./machines/fishball-sdr.md) (Fish Ball SDR, Zynq-7020 +
+    AD936x, a Pluto-like SDR: microSD A/B, U-Boot SPL, ADI kernel, PL
+    bitstream per slot)

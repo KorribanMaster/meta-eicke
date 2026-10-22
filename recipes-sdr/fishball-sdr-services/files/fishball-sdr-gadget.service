@@ -1,0 +1,19 @@
+[Unit]
+Description=Fish Ball SDR USB gadget (RNDIS/ECM, ACM, iiod FunctionFS)
+# The network mode and the board MAC come from uboot.env on /boot.
+RequiresMountsFor=/boot
+Requires=sys-kernel-config.mount
+After=sys-kernel-config.mount fishball-sdr-mac.service
+# iiod opens /dev/iio_ffs, which setup mounts; fishball-sdr-gadget-bind binds
+# the UDC once iiod has written its descriptors.
+Before=iiod.service
+Wants=iiod.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/fishball-sdr-gadget setup
+ExecStop=/usr/libexec/fishball-sdr-gadget stop
+
+[Install]
+WantedBy=multi-user.target

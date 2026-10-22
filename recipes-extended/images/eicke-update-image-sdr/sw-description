@@ -1,0 +1,78 @@
+/*
+ * SWUpdate description for the Eicke A/B (dual-copy) update — SDR image (fishball-sdr).
+ *
+ * The standby slot is selected AUTOMATICALLY at install time by the embedded
+ * Lua hook (`eicke_set_standby`): it reads the slot the system is running from
+ * (kernel cmdline `eicke.slot=rootfs_X`), writes the rootfs to the OTHER
+ * slot, and points the bootloader (grubenv) at it. No `-e` selection is needed,
+ * so the same bundle installs via the SWUpdate web interface AND the CLI:
+ *
+ *     # CLI (from the running target):
+ *     swupdate -i eicke-update-image-sdr-<machine>.rootfs.swu
+ *     # Web interface (mongoose, port 8080):
+ *     curl -F filename=@eicke-update-image-sdr-<machine>.rootfs.swu http://<target>:8080/upload
+ *
+ * @@IMAGE_MACHINE_SUFFIX@@ is expanded by the swupdate bbclass to e.g.
+ * "-fishball-sdr", giving the deployed rootfs basename
+ * "eicke-image-sdr-fishball-sdr.rootfs.ext4" (matching SWUPDATE_IMAGES_FSTYPES). The
+ * leading "@" on the sha256 line is the class's sha256 placeholder, replaced
+ * with the artifact's real hash at build time.
+ */
+software =
+{
+    version = "1.0";
+    description = "Eicke A/B rootfs update (SDR)";
+
+    /* Must list the target's /etc/hwrevision revision (the bitbake MACHINE,
+     * shipped by eicke-hwrevision; @@MACHINE@@ expanded by the swupdate
+     * class): swupdate refuses this bundle on any other machine. Required
+     * now that our defconfig sets CONFIG_HW_COMPATIBILITY=y. */
+    hardware-compatibility: [ "@@MACHINE@@" ];
+
+    /* /dev/eicke/<slot> (udev, eicke-bootpart) is the slot partition on the
+     * disk we booted from; /dev/disk/by-partlabel/ could name a same-named
+     * partition on another disk (e.g. a vendor install on the eMMC).
+     *
+     * Picks the standby slot from the running slot and points the bootloader at
+     * it (ustate=1 marks it "to test"; bootcount=0 arms the grub A/B fallback).
+     * Adjacent string literals are concatenated by libconfig. */
+    embedded-script = "function eicke_current_slot()\n"
+        "  local slot = nil\n"
+        "  local f = io.open('/proc/cmdline', 'r')\n"
+        "  if f then\n"
+        "    local c = f:read('*a') or ''\n"
+        "    f:close()\n"
+        "    slot = string.match(c, 'eicke%.slot=(rootfs_[ab])')\n"
+        "  end\n"
+        "  if not slot then slot = swupdate.get_bootenv('rootdev') end\n"
+        "  if slot ~= 'rootfs_a' and slot ~= 'rootfs_b' then slot = 'rootfs_a' end\n"
+        "  return slot\n"
+        "end\n"
+        "function eicke_set_standby(image)\n"
+        "  local cur = eicke_current_slot()\n"
+        "  local standby = 'rootfs_b'\n"
+        "  if cur == 'rootfs_b' then standby = 'rootfs_a' end\n"
+        "  image.device = '/dev/eicke/' .. standby\n"
+        "  swupdate.set_bootenv('rootdev', standby)\n"
+        "  swupdate.set_bootenv('ustate', '1')\n"
+        "  swupdate.set_bootenv('bootcount', '0')\n"
+        "  pcall(function() swupdate.info('eicke A/B: running ' .. cur .. ' -> writing standby ' .. standby) end)\n"
+        "  return true, image\n"
+        "end\n";
+
+    images: (
+        {
+            filename = "eicke-image-sdr@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
+            /* Overridden by the hook to the standby slot; a valid default keeps
+             * the parser happy if the hook is ever skipped. */
+            device   = "/dev/eicke/rootfs_b";
+            type     = "raw";
+            hook     = "eicke_set_standby";
+            /* Stream straight to the target device. Without this swupdate
+             * stages the whole image in /tmp (tmpfs) first, which overflows
+             * small-RAM targets (e.g. the 256 MB qemuarm-uboot guest). */
+            installed-directly = true;
+            sha256   = "@eicke-image-sdr@@IMAGE_MACHINE_SUFFIX@@.rootfs.ext4";
+        }
+    );
+}

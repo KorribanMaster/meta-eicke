@@ -1,0 +1,55 @@
+From: Eicke Hecht <eicke.hecht@outlook.de>
+Subject: [PATCH] zynq: whitelist the eicke A/B and fishball-sdr env variables
+
+CFG_ENV_FLAGS_LIST_STATIC is a board-header define (not Kconfig), so it
+cannot be set from a .cfg fragment. Together with CONFIG_ENV_WRITEABLE_LIST
+(set in eicke-fishball-sdr.cfg) it restricts which variables may be modified
+at runtime or imported from the attacker-writable uboot.env on the FAT boot
+partition: the eicke A/B state contract (rootdev/ustate/bootcount, see
+doc/images/eicke-update-image.md in meta-eicke), the variables the eicke
+bootcmd sets itself, what U-Boot core and the Zynq board code set at boot,
+and the SDR settings userspace keeps in uboot.env with fw_setenv.
+Everything else keeps its compiled-in default.
+
+The ax7015b list plus the fishball-sdr variables. Only applied for the
+fishball-sdr machine.
+
+Upstream-Status: Inappropriate [eicke product configuration]
+
+--- a/include/configs/zynq-common.h
++++ b/include/configs/zynq-common.h
+@@ -207,4 +207,34 @@
+  * Set it up as limit for now.
+  */
+ 
++/*
++ * eicke: with CONFIG_ENV_WRITEABLE_LIST only the variables below may be set
++ * at runtime or imported from uboot.env, which lives on the attacker-writable
++ * FAT boot partition. Everything else keeps its compiled-in default (a
++ * bootcmd/bootargs override in uboot.env is ignored). The list holds:
++ *  - the eicke A/B state contract (rootdev/ustate/bootcount);
++ *  - the scratch variables the eicke bootcmd and the commands it runs set
++ *    (slot, rootuuid, bootargs, filesize/fileaddr/fdtaddr);
++ *  - what U-Boot core and the Zynq board code set at boot (console, MAC,
++ *    fdtcontroladdr, modeboot/boot_targets, script and bootm windows). The
++ *    board code writes these after the env import, so values planted in
++ *    uboot.env do not survive;
++ *  - fishball-sdr: the AD936x variant the bootcmd patches into the device
++ *    tree (ad936x_model/ad936x_mode, canonicalized by the bootcmd), and the
++ *    settings only userspace reads (xo_correction, iio_max_block_size,
++ *    usb_ethernet_mode). U-Boot drops any variable not listed here on its
++ *    next saveenv, so everything fw_setenv keeps must be listed. ethaddr
++ *    is set once by fishball-sdr-mac.
++ */
++#define CFG_ENV_FLAGS_LIST_STATIC					\
++	"rootdev:sw,ustate:dw,bootcount:dw,"				\
++	"slot:dw,rootuuid:sw,bootargs:sw,"				\
++	"filesize:xw,fileaddr:xw,fdtaddr:xw,"				\
++	"stdin:sw,stdout:sw,stderr:sw,ver:sw,fdtcontroladdr:xw,"	\
++	"ethaddr:mw,ethact:sw,serial#:sw,"				\
++	"modeboot:sw,boot_targets:sw,scriptaddr:xw,"			\
++	"script_offset_f:xw,script_size_f:xw,bootm_low:xw,bootm_size:xw," \
++	"ad936x_model:sw,ad936x_mode:sw,xo_correction:dw,"		\
++	"iio_max_block_size:dw,usb_ethernet_mode:sw"
++
+ #endif /* __CONFIG_ZYNQ_COMMON_H */

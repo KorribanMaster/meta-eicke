@@ -89,6 +89,8 @@ Start at [`doc/general.md`](doc/general.md) (index). Highlights:
 - Images — [`doc/images/`](doc/images/): [eicke-image](doc/images/eicke-image.md),
   [eicke-update-image](doc/images/eicke-update-image.md),
   [eicke-image-dev](doc/images/eicke-image-dev.md) (debug tools),
+  [eicke-image-sdr](doc/images/eicke-image-sdr.md) (Pluto-style SDR stack,
+  fishball-sdr only),
   [eicke-image-prod](doc/images/eicke-image-prod.md) (hardened production image),
   [eicke-image-netboot](doc/images/eicke-image-netboot.md) (iPXE netboot,
   qemux86-64 only),
@@ -105,7 +107,10 @@ Start at [`doc/general.md`](doc/general.md) (index). Highlights:
   [ax7015b](doc/machines/ax7015b.md) (ALINX AX7015B, Zynq-7000, microSD A/B,
   U-Boot SPL + Cortex-A9 CPU1 / RustAmp),
   [te0820](doc/machines/te0820.md) (Trenz TE0820-02 on TE0703, Zynq
-  UltraScale+, microSD A/B, U-Boot SPL + TF-A; needs meta-arm)
+  UltraScale+, microSD A/B, U-Boot SPL + TF-A; needs meta-arm),
+  [fishball-sdr](doc/machines/fishball-sdr.md) (Fish Ball SDR, Zynq-7020 +
+  AD936x, a Pluto-like SDR: microSD A/B, U-Boot SPL, ADI kernel, PL bitstream
+  per slot)
 - Security — [doc/security.md](doc/security.md): hardening (SSH, kernel,
   sysctls, firewall, update gating), the verified-boot chains incl. UEFI
   Secure Boot setup, and the TPM-sealed /data encryption status (WIP)

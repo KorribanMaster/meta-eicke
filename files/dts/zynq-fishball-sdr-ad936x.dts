@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Fish Ball SDR with its PL design: the board's PS (zynq-fishball-sdr.dts)
+ * plus the AD936x and the ADI cores of the vendor's fmcomms2 port
+ * (system_top.xsa, loaded by U-Boot from the slot's /boot/fishball-sdr.bit).
+ * Linux only: the ADI bindings and adi-fmcomms2.dtsi exist only in the ADI
+ * kernel tree (linux-adi).
+ *
+ * Same layout as ADI's zynq-zc702-adv7511-ad9361-fmcomms2-3.dts, which the
+ * vendor's PetaLinux build used: the cores at their fmcomms2 addresses, the
+ * AD936x on PS SPI0 (EMIO), its control lines on EMIO GPIO 44..48.
+ *
+ * U-Boot's bootcmd edits this tree before booting (ad936x_model,
+ * ad936x_mode, see eicke-fishball-sdr.cfg) by the node paths below; keep
+ * them in sync.
+ */
+#include "zynq-fishball-sdr.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		rx_dma: dma-controller@7c400000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c400000 0x1000>;
+			#dma-cells = <1>;
+			interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 16>;
+		};
+
+		tx_dma: dma-controller@7c420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c420000 0x1000>;
+			#dma-cells = <1>;
+			interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 16>;
+		};
+
+		cf_ad9361_adc_core_0: cf-ad9361-lpc@79020000 {
+			compatible = "adi,axi-ad9361-6.00.a";
+			reg = <0x79020000 0x6000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&adc0_ad9361>;
+		};
+
+		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {
+			compatible = "adi,axi-ad9361-dds-6.00.a";
+			reg = <0x79024000 0x1000>;
+			clocks = <&adc0_ad9361 13>;
+			clock-names = "sampl_clk";
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+/*
+ * adi-fmcomms2.dtsi also puts the FMCOMMS2/3 card's AD7291 and EEPROM on the
+ * FMC I2C bus. This board has neither: hang them off I2C0, which stays
+ * disabled, so they never probe.
+ */
+#define fmc_spi spi0
+#define fmc_i2c i2c0
+#include "../adi-fmcomms2.dtsi"
+
+&adc0_ad9361 {
+	/*
+	 * The 40 MHz reference is an oscillator (Y4) into XTALN, not a crystal:
+	 * bypass the DCXO, as the vendor's Pluto port does.
+	 */
+	adi,xo-disable-use-ext-refclk-enable;
+
+	/* EMIO GPIO 44..48 = gpio0 98..102 (54 MIO lines come first). */
+	en_agc-gpios = <&gpio0 98 0>;
+	sync-gpios = <&gpio0 99 0>;
+	reset-gpios = <&gpio0 100 0>;
+	enable-gpios = <&gpio0 101 0>;
+	txnrx-gpios = <&gpio0 102 0>;
+};

@@ -1,5 +1,5 @@
 # A/B (dual-copy) microSD layout for Zynq-7000 and Zynq UltraScale+ boards
-# booting U-Boot SPL (ax7015b, te0820), used with SWUpdate.
+# booting U-Boot SPL (ax7015b, fishball-sdr, te0820), used with SWUpdate.
 #
 #   p1  esp       vfat    64 MiB  boot partition: boot.bin (SPL) + u-boot.img
 #                                 or u-boot-<hash>.itb + uboot.env (A/B state)

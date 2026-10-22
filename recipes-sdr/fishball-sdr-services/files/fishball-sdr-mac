@@ -1,0 +1,15 @@
+#!/bin/sh
+# Give the board a permanent MAC address. It has no MAC storage: without an
+# ethaddr in the environment, U-Boot makes up a random one on every boot (and
+# with it a new DHCP lease and USB serial number). On the first boot this
+# writes a random locally administered unicast MAC to uboot.env, which U-Boot
+# uses (and passes to Linux) from the next boot on. uboot.env lives on the
+# boot partition, so the address survives A/B updates and slot switches.
+set -e
+
+[ -n "$(fw_printenv -n ethaddr 2>/dev/null)" ] && exit 0
+
+# 02:xx:xx:xx:xx:xx: locally administered (bit 1), unicast (bit 0 clear).
+mac=$(od -An -N5 -tx1 /dev/urandom | tr -s ' ' ':' | sed 's/^:/02:/')
+fw_setenv ethaddr "$mac"
+echo "fishball-sdr-mac: ethaddr set to $mac (used from the next boot on)"

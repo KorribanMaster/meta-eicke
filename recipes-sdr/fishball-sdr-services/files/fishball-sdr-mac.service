@@ -1,0 +1,15 @@
+[Unit]
+Description=Store a permanent MAC address for the Fish Ball SDR in uboot.env
+RequiresMountsFor=/boot
+After=local-fs.target
+# One writer of uboot.env at a time.
+Before=eicke-bootconfirm.service
+ConditionPathExists=/boot/uboot.env
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/fishball-sdr-mac
+
+[Install]
+WantedBy=multi-user.target
