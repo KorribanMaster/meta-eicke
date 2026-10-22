@@ -69,6 +69,7 @@ SRC_URI:append:te0820 = " \
     file://te0820/eicke-te0820.cfg \
     file://te0820/0001-zynqmp-eicke-env-flags-whitelist.patch \
     file://te0820/0002-arm64-zynqmp-spl-signal-boot-loader-completion-to-PMU.patch \
+    file://te0820/0003-arm64-zynqmp-spl-boot-from-boot.bin-again-after-a-golden-image-fallback.patch \
 "
 
 DEPENDS:append:te0820 = " trusted-firmware-a"
@@ -109,13 +110,20 @@ do_configure:prepend:te0820() {
 # the current one and switches with the single rename of boot.bin. The task
 # hash covers everything that goes into both files (U-Boot, the board files,
 # TF-A, the PMU firmware); it is excluded from the hash itself.
+# The same 16 digits go into the version (CONFIG_LOCALVERSION, e.g.
+# 2026.01-965493a0b12ec48e), which SPL and U-Boot print and U-Boot passes to
+# Linux as /chosen/u-boot,version: the build that booted, seen from Linux.
 do_compile:prepend:te0820() {
     hash=${BB_TASKHASH}
     [ ${#hash} -ge 16 ] || bbfatal "no task hash to name u-boot.itb after"
-    itb=u-boot-$(echo $hash | cut -c1-16).itb
-    sed -i "s/^CONFIG_SPL_FS_LOAD_PAYLOAD_NAME=.*/CONFIG_SPL_FS_LOAD_PAYLOAD_NAME=\"$itb\"/" ${B}/.config
+    id=$(echo $hash | cut -c1-16)
+    itb=u-boot-$id.itb
+    sed -i -e "s/^CONFIG_SPL_FS_LOAD_PAYLOAD_NAME=.*/CONFIG_SPL_FS_LOAD_PAYLOAD_NAME=\"$itb\"/" \
+        -e "s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\"-$id\"/" ${B}/.config
     grep -qx "CONFIG_SPL_FS_LOAD_PAYLOAD_NAME=\"$itb\"" ${B}/.config || \
         bbfatal "CONFIG_SPL_FS_LOAD_PAYLOAD_NAME not in ${B}/.config"
+    grep -qx "CONFIG_LOCALVERSION=\"-$id\"" ${B}/.config || \
+        bbfatal "CONFIG_LOCALVERSION not in ${B}/.config"
 }
 
 # binman names the FIT after CONFIG_SPL_FS_LOAD_PAYLOAD_NAME; oe-core's

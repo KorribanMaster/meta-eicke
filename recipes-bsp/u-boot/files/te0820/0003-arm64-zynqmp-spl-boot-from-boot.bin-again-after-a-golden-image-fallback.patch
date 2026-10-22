@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eicke Hecht <eicke.hecht@gmail.com>
+Date: Thu, 22 Oct 2026 21:49:24 +0200
+Subject: [PATCH] arm64: zynqmp: spl: boot from boot.bin again after a golden
+ image fallback
+
+When boot.bin's boot header is invalid, the boot ROM's golden image
+search boots the next image (on SD: BOOT0001.BIN, ...) and leaves its
+offset in CSU MULTI_BOOT. The register is only cleared by a power-on
+reset, so every later system reset boots the fallback image again, even
+after boot.bin has been replaced. Clear it once SPL has loaded U-Boot.
+
+Upstream-Status: Pending
+---
+ arch/arm/mach-zynqmp/spl.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/arch/arm/mach-zynqmp/spl.c b/arch/arm/mach-zynqmp/spl.c
+index 3e25c88..ec8b8ce 100644
+--- a/arch/arm/mach-zynqmp/spl.c
++++ b/arch/arm/mach-zynqmp/spl.c
+@@ -144,6 +144,15 @@ u32 spl_boot_device(void)
+ void spl_board_prepare_for_boot(void)
+ {
+ 	setbits_le32(&pmu_base->gen_storage5, BIT(0) | BIT(1));
++
++	/*
++	 * The boot ROM's golden image search leaves the offset of the image
++	 * it booted in CSU MULTI_BOOT (on SD: n for BOOT000n.BIN), and the
++	 * register keeps it across system resets: after one fallback, every
++	 * later reset would boot that image again, never boot.bin. This one
++	 * has loaded U-Boot, so start the next search at boot.bin again.
++	 */
++	writel(0, &csu_base->multi_boot);
+ }
+ 
+ #ifdef CONFIG_SPL_OS_BOOT

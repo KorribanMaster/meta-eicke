@@ -18,6 +18,21 @@ def pytest_addoption(parser):
         action="store_true",
         help="build the images a test boots before booting them",
     )
+    parser.addoption(
+        "--board",
+        metavar="HOST",
+        help="a real board running eicke-image, reached over SSH as root "
+        "(the board tests are skipped without it)",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--board"):
+        return
+    skip = pytest.mark.skip(reason="needs a board: --board HOST")
+    for item in items:
+        if "board" in item.keywords:
+            item.add_marker(skip)
 
 
 @pytest.fixture(scope="session")
