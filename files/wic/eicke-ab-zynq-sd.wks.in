@@ -2,7 +2,7 @@
 # booting U-Boot SPL (ax7015b, te0820), used with SWUpdate.
 #
 #   p1  esp       vfat    64 MiB  boot partition: boot.bin (SPL) + u-boot.img
-#                                 or u-boot.itb + uboot.env (A/B state)
+#                                 or u-boot-<hash>.itb + uboot.env (A/B state)
 #   p2  rootfs_a  ext4     1 GiB  active rootfs (populated at build time)
 #   p3  rootfs_b  ext4     1 GiB  standby rootfs (empty; written by SWUpdate)
 #   p4  data      ext4     4 GiB  persistent data / SWUpdate state

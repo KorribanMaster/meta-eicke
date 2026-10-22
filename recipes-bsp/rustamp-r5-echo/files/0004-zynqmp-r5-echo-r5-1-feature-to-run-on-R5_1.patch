@@ -152,8 +152,8 @@ index e37b835..114f4cb 100644
  
 -/// Shared memory: `vdev0vring0`, `vdev0vring1`, `vdev0buffer`.
 -pub const SHM_BASE: u32 = 0x3ED4_0000;
-+/// Shared memory: `vdev0vring0`, `vdev0vring1`, `vdev0buffer` (R5_1:
-+/// `vdev1vring0`, `vdev1vring1`, `vdev1buffer`), right after the carve-out.
++/// Shared memory, right after the carve-out: `vdev0vring0`, `vdev0vring1`,
++/// `vdev0buffer`, on R5_1 too (Linux takes only `vdev0buffer` as the pool).
 +pub const SHM_BASE: u32 = FW_DDR_BASE + FW_DDR_SIZE;
  /// 16 KiB per vring plus the 1 MiB buffer pool.
 +#[cfg(not(feature = "r5-1"))]

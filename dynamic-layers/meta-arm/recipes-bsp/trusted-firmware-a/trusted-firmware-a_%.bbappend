@@ -11,6 +11,7 @@ TFA_INSTALL_TARGET:te0820 = "bl31"
 # The zynqmp platform forces LTO (ENABLE_LTO := 1, so that bl31 fits in OCM),
 # which needs gcc as the linker driver (-fuse-linker-plugin); meta-arm passes
 # plain ld ("ld: -f may not be used without -shared"). TF-A detects a gcc
-# linker and prefixes its linker options with -Wl, itself. The later LD= on
-# the make command line wins.
-EXTRA_OEMAKE:append:te0820 = " LD='${@remove_options_tail(d.getVar('CC'))}'"
+# linker and prefixes its linker options with -Wl, itself. meta-arm builds
+# its LD= make argument from LD (which it does not export), so setting LD to
+# the compiler here changes that one argument, whatever its position.
+LD:te0820 = "${CC}"

@@ -3,10 +3,12 @@
  *
  * Writes the new boot.bin and u-boot.itb to the ESP (mounted at /boot) as
  * *.new; eicke-bootloader-swap.sh checks that the ESP is there before, and
- * swaps the files in after (u-boot.itb first, boot.bin last), keeping the
- * previous ones as *.old. The A/B state (rootdev, ustate) is not touched;
- * the new bootloader runs from the next boot on (no trial, no rollback:
- * the bootloader is not A/B).
+ * switches to them after: the .itb goes in under the name the new SPL loads
+ * (u-boot-<hash>.itb), then a single rename replaces boot.bin. The previous
+ * boot.bin stays as BOOT0001.BIN, the boot ROM's fallback for a torn
+ * boot.bin. The A/B state (rootdev, ustate) is not touched; the new
+ * bootloader runs from the next boot on (no trial, no rollback: the
+ * bootloader is not A/B).
  *
  *     swupdate -i eicke-update-bootloader-<machine>.rootfs.swu
  *     curl -F filename=@eicke-update-bootloader-<machine>.rootfs.swu http://<target>:8080/upload

@@ -88,9 +88,10 @@ full apply-and-verify walkthrough under QEMU.
 ## Bootloader updates
 
 The rootfs bundles never touch the bootloader. On te0820, where the
-bootloader (`boot.bin`, `u-boot.itb`) lives once on the ESP rather than per
-slot, it has a bundle of its own, `eicke-update-bootloader`: same signing
-key and hardware-compatibility gate, files written as `*.new` and swapped in
-by a script (keeping `*.old`), and `bootloader_state_marker = false` /
+bootloader (`boot.bin`, `u-boot-<hash>.itb`) lives once on the ESP rather
+than per slot, it has a bundle of its own, `eicke-update-bootloader`: same
+signing key and hardware-compatibility gate, files written next to the
+current ones and switched to by a single rename of `boot.bin` (keeping the
+previous one as `BOOT0001.BIN`), and `bootloader_state_marker = false` /
 `bootloader_transaction_marker = false`, so the A/B state above is left as it
 is. See [doc/machines/te0820.md](../machines/te0820.md#updating-with-swupdate).

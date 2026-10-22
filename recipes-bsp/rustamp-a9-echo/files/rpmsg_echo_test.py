@@ -18,17 +18,13 @@ Usage: rpmsg_echo_test.py [--count N] [--cycles N] [--firmware NAME] [--rproc DI
 import argparse
 import glob
 import os
-import select
 import sys
-import termios
 import time
+
+from rpmsg_tty import log, open_raw, read_exact, wait_for
 
 TTY = "/dev/ttyRPMSG0"
 MAX_MSG = 256
-
-
-def log(msg):
-    print("[rpmsg-echo] " + msg, flush=True)
 
 
 def find_rproc(name_hints=("remoteproc-cpu1",)):
@@ -61,45 +57,6 @@ def start_remote(rproc, firmware):
         f.write(firmware)
     set_state(rproc, "start")
     log("started %s with %s" % (rproc, firmware))
-
-
-def wait_for(cond, timeout):
-    end = time.monotonic() + timeout
-    while time.monotonic() < end:
-        if cond():
-            return True
-        time.sleep(0.05)
-    return False
-
-
-def open_raw(path):
-    fd = os.open(path, os.O_RDWR | os.O_NOCTTY)
-    attrs = termios.tcgetattr(fd)
-    # cfmakeraw: no line discipline processing, no echo, 8-bit clean.
-    attrs[0] &= ~(termios.IGNBRK | termios.BRKINT | termios.PARMRK |
-                  termios.ISTRIP | termios.INLCR | termios.IGNCR |
-                  termios.ICRNL | termios.IXON)
-    attrs[1] &= ~termios.OPOST
-    attrs[2] &= ~(termios.CSIZE | termios.PARENB)
-    attrs[2] |= termios.CS8
-    attrs[3] &= ~(termios.ECHO | termios.ECHONL | termios.ICANON |
-                  termios.ISIG | termios.IEXTEN)
-    termios.tcsetattr(fd, termios.TCSANOW, attrs)
-    termios.tcflush(fd, termios.TCIOFLUSH)
-    return fd
-
-
-def read_exact(fd, n, timeout):
-    buf = b""
-    end = time.monotonic() + timeout
-    while len(buf) < n:
-        left = end - time.monotonic()
-        if left <= 0:
-            break
-        r, _, _ = select.select([fd], [], [], left)
-        if r:
-            buf += os.read(fd, n - len(buf))
-    return buf
 
 
 def echo_round_trips(count):

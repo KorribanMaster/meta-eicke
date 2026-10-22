@@ -101,3 +101,34 @@ do_configure:prepend:te0820() {
     sed -i -E 's/^( ?[A-Za-z_][A-Za-z0-9_ *]*[A-Za-z0-9_]) ?\(\)/\1(void)/' \
         $board/psu_init_gpl.c $board/psu_init_gpl.h
 }
+
+# SPL loads U-Boot from a file named after its own build,
+# u-boot-<16 hex digits of do_compile's task hash>.itb, instead of the fixed
+# u-boot.itb. Each boot.bin is then paired with exactly its own u-boot.itb,
+# and a bootloader update (eicke-update-bootloader) writes the new .itb next to
+# the current one and switches with the single rename of boot.bin. The task
+# hash covers everything that goes into both files (U-Boot, the board files,
+# TF-A, the PMU firmware); it is excluded from the hash itself.
+do_compile:prepend:te0820() {
+    hash=${BB_TASKHASH}
+    [ ${#hash} -ge 16 ] || bbfatal "no task hash to name u-boot.itb after"
+    itb=u-boot-$(echo $hash | cut -c1-16).itb
+    sed -i "s/^CONFIG_SPL_FS_LOAD_PAYLOAD_NAME=.*/CONFIG_SPL_FS_LOAD_PAYLOAD_NAME=\"$itb\"/" ${B}/.config
+    grep -qx "CONFIG_SPL_FS_LOAD_PAYLOAD_NAME=\"$itb\"" ${B}/.config || \
+        bbfatal "CONFIG_SPL_FS_LOAD_PAYLOAD_NAME not in ${B}/.config"
+}
+
+# binman names the FIT after CONFIG_SPL_FS_LOAD_PAYLOAD_NAME; oe-core's
+# install and deploy expect u-boot.itb.
+do_compile:append:te0820() {
+    itb=$(sed -n 's/^CONFIG_SPL_FS_LOAD_PAYLOAD_NAME="\(.*\)"$/\1/p' ${B}/.config)
+    cp ${B}/$itb ${B}/u-boot.itb
+}
+
+# Deploy u-boot.itb under the name SPL loads, too (eicke-esp/, so the image's
+# IMAGE_BOOT_FILES glob only matches it, not the usual u-boot-<machine>-*.itb).
+do_deploy:append:te0820() {
+    itb=$(sed -n 's/^CONFIG_SPL_FS_LOAD_PAYLOAD_NAME="\(.*\)"$/\1/p' ${B}/.config)
+    [ -n "$itb" ] || bbfatal "CONFIG_SPL_FS_LOAD_PAYLOAD_NAME not in ${B}/.config"
+    install -D -m 0644 ${B}/u-boot.itb ${DEPLOYDIR}/eicke-esp/$itb
+}

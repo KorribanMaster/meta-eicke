@@ -10,19 +10,13 @@ rustamp-r5_1-echo.elf."
 LICENSE = "BSD-3-Clause"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=482e63bde56d4bd2f7c028e38cfcf0ef"
 
-PV = "0.1+git"
+require recipes-bsp/rustamp-common/rustamp-firmware.inc
 
 # Linked to the te0820 device tree's carve-outs (rproc_N_fw_image and the
 # vrings/buffers after them); logs only to the remoteproc trace buffer, as
 # the board has no spare UART (see the patches).
 COMPATIBLE_MACHINE = "te0820"
 R5_CARGO_FEATURES ?= "no-uart"
-PACKAGE_ARCH = "${MACHINE_ARCH}"
-
-# Build-only dep: the prebuilt rustc/cargo with the armv7r-none-eabihf core.
-# Deliberately NOT 'inherit cargo' -- that drives OE's target rust for the
-# Linux target triple.
-DEPENDS = "rust-bin-thumbv7em-native"
 
 # Public repo, fetched anonymously over https, at the same revision as
 # rustamp-a9-echo. The patches: 0001 drops the loom model checker from the
@@ -36,8 +30,6 @@ SRC_URI = "git://github.com/KorribanMaster/rustamp.git;protocol=https;branch=mai
            file://0002-zynqmp-r5-echo-drop-the-loom-packages-from-the-lockf.patch \
            file://0003-zynqmp-r5-echo-no-uart-feature-for-boards-without-a-.patch \
            file://0004-zynqmp-r5-echo-r5-1-feature-to-run-on-R5_1.patch \
-           file://run-ptest \
-           file://rpmsg_echo_test.py \
            file://rpmsg_bench.py \
 "
 SRCREV = "1acfdb0a43b12dd329da1525ccecfdd874c00f7a"
@@ -81,36 +73,13 @@ SRC_URI[thiserror-2.0.21.sha256sum] = "09e52cb86a36cede5cb101bf8908837b3e4c6e5e5
 SRC_URI[thiserror-impl-2.0.21.sha256sum] = "fe5197923287db20a58125f0bc85c062f7f2c892de97b18c356f9efb14b28524"
 SRC_URI[unicode-ident-1.0.27.sha256sum] = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
-# wrynose unpacks git SRC_URIs to ${UNPACKDIR}/${BP}.
-S = "${UNPACKDIR}/${BP}"
-B = "${WORKDIR}/build"
-
-inherit ptest
-
-# Bare-metal ARMv7-R blobs, not code for the image's tune: must not be
-# stripped/split or trigger an arch error. buildpaths: the release profile
-# keeps debug info (remoteproc ignores it; handy for gdb over JTAG).
-INHIBIT_PACKAGE_STRIP = "1"
-INHIBIT_SYSROOT_STRIP = "1"
-INSANE_SKIP:${PN} += "arch buildpaths"
-
-RUST_BIN = "${STAGING_DATADIR_NATIVE}/rust-bin/bin"
 # The crate fetcher unpacks the crates (with their .cargo-checksum.json)
 # here; cargo_common.bbclass's directory source, without the class.
 CRATES_DIR = "${UNPACKDIR}/cargo_home/bitbake"
 
 do_compile() {
-    # build.rs is compiled for the build host and needs a single-program linker;
-    # BUILD_CC carries flags, so wrap it.
-    printf '#!/bin/sh\nexec %s "$@"\n' "${BUILD_CC}" > ${B}/build-cc
-    chmod +x ${B}/build-cc
-
-    unset RUSTFLAGS RUSTC RUSTDOC CARGO_BUILD_TARGET CARGO_HOME
-    export PATH="${RUST_BIN}:$PATH"
-    export CARGO_HOME="${WORKDIR}/cargo-home"
-    export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="${B}/build-cc"
-    mkdir -p ${CARGO_HOME}
-    cat > ${CARGO_HOME}/config.toml <<EOF
+    rustamp_cargo_env
+    cat > $CARGO_HOME/config.toml <<EOF
 [source.bitbake]
 directory = "${CRATES_DIR}"
 
@@ -138,20 +107,11 @@ do_install() {
 
 FILES:${PN} = "${nonarch_base_libdir}/firmware/rustamp-r5_*-echo.elf"
 
-# ---------------------------------------------------------------------------
-# ptest: start the firmware on both R5s through remoteproc, run checked echo
-# round trips on both /dev/ttyRPMSG<n> at the same time, then stop and
-# restart both and echo again; then rpmsg_bench.py measures round-trip
-# latency and throughput, per core and both at once. Enabled for just this recipe, like
-# rustamp-a9-echo.
-PTEST_ENABLED = "1"
-# python3-io carries termios (raw tty mode); select/fcntl are in
-# python3-core, threading too.
-RDEPENDS:${PN}-ptest += "${PN} python3-core python3-io"
-
-do_install_ptest() {
-    install -d ${D}${PTEST_PATH}
-    install -m 0755 ${UNPACKDIR}/run-ptest ${D}${PTEST_PATH}/run-ptest
-    install -m 0755 ${UNPACKDIR}/rpmsg_echo_test.py ${D}${PTEST_PATH}/rpmsg_echo_test.py
+# ptest (rustamp-firmware.inc): start the firmware on both R5s through
+# remoteproc, run checked echo round trips on both /dev/ttyRPMSG<n> at the
+# same time, then stop and restart both and echo again. rpmsg_bench.py, which
+# measures round-trip latency and throughput per core and both at once, is
+# installed next to it but not run by run-ptest (see doc/machines/te0820.md).
+do_install_ptest:append() {
     install -m 0755 ${UNPACKDIR}/rpmsg_bench.py ${D}${PTEST_PATH}/rpmsg_bench.py
 }

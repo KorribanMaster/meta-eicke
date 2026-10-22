@@ -21,20 +21,16 @@ Usage: rpmsg_echo_test.py [--cores 0,1] [--count N] [--cycles N]
 import argparse
 import glob
 import os
-import select
 import sys
-import termios
 import threading
 import time
+
+from rpmsg_tty import log, open_raw, read_exact, wait_for
 
 MAX_MSG = 256
 # The R5 cores' remoteproc instances, by device name (the split cluster's
 # r5f@0 / r5f@1, named after their TCM addresses in the APU's view).
 CORE_DEVICES = {0: "ffe00000.r5f", 1: "ffe90000.r5f"}
-
-
-def log(msg):
-    print("[rpmsg-echo] " + msg, flush=True)
 
 
 class Core:
@@ -73,45 +69,6 @@ class Core:
             if rp in os.path.realpath(t):
                 return "/dev/" + os.path.basename(t)
         return None
-
-
-def wait_for(cond, timeout):
-    end = time.monotonic() + timeout
-    while time.monotonic() < end:
-        if cond():
-            return True
-        time.sleep(0.05)
-    return False
-
-
-def open_raw(path):
-    fd = os.open(path, os.O_RDWR | os.O_NOCTTY)
-    attrs = termios.tcgetattr(fd)
-    # cfmakeraw: no line discipline processing, no echo, 8-bit clean.
-    attrs[0] &= ~(termios.IGNBRK | termios.BRKINT | termios.PARMRK |
-                  termios.ISTRIP | termios.INLCR | termios.IGNCR |
-                  termios.ICRNL | termios.IXON)
-    attrs[1] &= ~termios.OPOST
-    attrs[2] &= ~(termios.CSIZE | termios.PARENB)
-    attrs[2] |= termios.CS8
-    attrs[3] &= ~(termios.ECHO | termios.ECHONL | termios.ICANON |
-                  termios.ISIG | termios.IEXTEN)
-    termios.tcsetattr(fd, termios.TCSANOW, attrs)
-    termios.tcflush(fd, termios.TCIOFLUSH)
-    return fd
-
-
-def read_exact(fd, n, timeout):
-    buf = b""
-    end = time.monotonic() + timeout
-    while len(buf) < n:
-        left = end - time.monotonic()
-        if left <= 0:
-            break
-        r, _, _ = select.select([fd], [], [], left)
-        if r:
-            buf += os.read(fd, n - len(buf))
-    return buf
 
 
 def echo_round_trips(core, count, results):

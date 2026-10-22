@@ -8,13 +8,17 @@ them) and reports, per core, alone and then with all cores at once:
               for 1, 64 and 256 bytes: min / median / p99 / max in us;
   throughput  a stream of 256-byte blocks, written by one thread and read
               back and checked by another: echoed payload bytes per second
-              (each byte crosses the link twice).
+              (each byte crosses the link twice). Every byte that comes
+              back is counted, including what is still in flight at the
+              end, so a lost or duplicated message fails the run.
 
 Measured from Python through rpmsg_tty, so the numbers include the tty
 layer and the interpreter, not just the IPI and virtio path.
 
-Exit status 0 when every echo came back intact; the numbers themselves are
-informational.
+Exit status 0 when every echo came back intact and complete; the numbers
+themselves are informational. Not run by run-ptest; on the board:
+
+  cd /usr/lib/rustamp-r5-echo/ptest && ./rpmsg_bench.py
 
 Usage: rpmsg_bench.py [--cores 0,1] [--rounds N] [--seconds S]
 """
@@ -25,7 +29,8 @@ import sys
 import threading
 import time
 
-from rpmsg_echo_test import Core, log, open_raw, read_exact
+from rpmsg_echo_test import Core
+from rpmsg_tty import log, open_raw, read_exact
 
 SIZES = (1, 64, 256)
 BLOCK = 256
@@ -37,7 +42,7 @@ def latency(core, rounds, out):
     res = {}
     try:
         for size in SIZES:
-            msg = bytes(range(size)) if size <= 256 else bytes(size)
+            msg = bytes(range(size))
             times = []
             for _ in range(rounds):
                 t0 = time.perf_counter()
@@ -57,7 +62,8 @@ def latency(core, rounds, out):
 
 
 def throughput(core, seconds, out):
-    """Echoed bytes per second for a continuous stream of BLOCK-byte writes."""
+    """Echoed bytes per second for a continuous stream of BLOCK-byte writes;
+    None if an echo is broken or the bytes echoed differ from those sent."""
     fd = open_raw(core.tty())
     block = bytes((i * 7) & 0xFF for i in range(BLOCK))
     stop = threading.Event()
@@ -67,7 +73,7 @@ def throughput(core, seconds, out):
     def writer():
         while not stop.is_set():
             try:
-                os.write(fd, block)
+                n = os.write(fd, block)
             except OSError as e:
                 # rpmsg_tty does not block when all TX buffers are in
                 # flight: it fails the write with ENOMEM. Back off and retry.
@@ -75,7 +81,8 @@ def throughput(core, seconds, out):
                     raise
                 time.sleep(0.0002)
                 continue
-            sent[0] += BLOCK
+            # rpmsg_tty sends a write up to its MTU (> BLOCK) as one message.
+            sent[0] += n
 
     received = 0
     w = threading.Thread(target=writer)
@@ -92,14 +99,25 @@ def throughput(core, seconds, out):
     finally:
         stop.set()
         w.join()
-        # Drain what is still in flight, so the next run starts clean.
-        while read_exact(fd, BLOCK, 0.5):
-            pass
+        # Read what is still in flight, so every byte sent is accounted for
+        # and the next run starts clean.
+        echoed = received
+        while True:
+            chunk = read_exact(fd, BLOCK, 0.5)
+            if not chunk:
+                break
+            if chunk != block[:len(chunk)]:
+                ok[0] = False
+            echoed += len(chunk)
         os.close(fd)
-    out[core.index] = (received / elapsed) if ok[0] else None
     if not ok[0]:
         log("FAIL: %s: stream echo broken after %d bytes"
             % (core.name, received))
+    elif echoed != sent[0]:
+        ok[0] = False
+        log("FAIL: %s: %d bytes sent, %d echoed"
+            % (core.name, sent[0], echoed))
+    out[core.index] = (received / elapsed) if ok[0] else None
 
 
 def run(cores, fn, arg):
