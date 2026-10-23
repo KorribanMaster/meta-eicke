@@ -94,8 +94,11 @@ class TestSdr:
         assert board.out("systemctl is-active ad936x-config iiod") == "active\nactive"
 
     def test_mac_from_uboot_env(self, board):
+        # fishball-sdr-mac's 02:..., or U-Boot's random one, when a saveenv
+        # (a trial boot) stored it first: both locally administered unicast.
         mac = board.env("ethaddr").lower()
-        assert re.fullmatch(r"02(:[0-9a-f]{2}){5}", mac), mac
+        assert re.fullmatch(r"[0-9a-f]{2}(:[0-9a-f]{2}){5}", mac), mac
+        assert int(mac[:2], 16) & 0x03 == 0x02, mac
         assert board.out("cat /sys/class/net/eth0/address") == mac
 
     def test_rx_capture(self, board):
@@ -123,7 +126,7 @@ class TestSdr:
 
     def test_usb_gadget(self, board):
         g = "/sys/kernel/config/usb_gadget/fishball_sdr"
-        assert board.out(f"cat {g}/UDC") == "e0002000.usb"
+        assert board.out(f"cat {g}/UDC") == "ci_hdrc.0"  # ChipIdea on usb0
         ids = board.out(f"cat {g}/idVendor {g}/idProduct").split()
         assert ids == ["0x0456", "0xb673"]
         assert board.run("test -e /dev/iio_ffs/ep1", check=False)[0] == 0

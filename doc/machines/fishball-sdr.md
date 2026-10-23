@@ -181,11 +181,19 @@ systemd:
   - **RNDIS** networking by default, or ECM/NCM with
     `fw_setenv usb_ethernet_mode ecm|ncm`. The board is `192.168.2.1`, and
     networkd's DHCP server gives the host an address from `192.168.2.10`.
-  - an **ACM console** with a login on `ttyGS0`.
+    usb0 keeps its address with no host plugged in (`ConfigureWithoutCarrier`).
+  - an **ACM console** with a login on `ttyGS0`. systemd does not reset that
+    tty (drop-in `serial-getty@ttyGS0.service.d/10-fishball-sdr.conf`): a
+    write to ttyGS0 blocks until a host opens it, and systemd's reset holds
+    the `/dev/console` lock meanwhile, which left the `ttyPS0` console without
+    a login prompt whenever the OTG port was unplugged.
   - **iiod over FunctionFS** (`iio_info -u usb:`).
 - **A permanent MAC address.** The board has no MAC storage, so on its first
   boot `fishball-sdr-mac` writes a random locally administered `ethaddr` to
   `uboot.env`. From the next boot on, U-Boot uses it and passes it to Linux.
+  (If a `saveenv` comes first, e.g. the trial boot after an update, U-Boot's
+  own random MAC is stored instead; it is locally administered too, and
+  `fishball-sdr-mac` keeps it.)
   It survives updates and slot switches (the DHCP lease does too), and it is
   the USB serial number.
 - The libiio tools on the board: `iio_info`, `iio_attr`, `iio_readdev`,
@@ -216,6 +224,9 @@ bmaptool copy $DEPLOY/eicke-image-sdr-fishball-sdr.rootfs.wic $DEV   # e.g. /dev
 1. Put the card in the board's microSD slot.
 2. Set the two-position boot DIP switch to **SD**: both levers down ("00", the
    factory setting; MIO4/5 high). MIO4 low alone is QSPI, both low is JTAG.
+   If unsure, read the straps over JTAG (the same USB-C, Vitis `xsdb`):
+   `connect; targets -set -filter {name =~ "APU*"}; mrd -force 0xF800025C`
+   reads `5` for SD, `0` for JTAG.
 3. Plug the **"JTAG" USB-C** into the host. It powers the board, and channel B
    of its FT2232HL is the console (`UART1` = `ttyPS0`, 115200 8N1; the host's
    second `ttyUSB` of the pair).
@@ -252,8 +263,10 @@ SSH only (see [testing](../testing.md#on-the-board)). It checks:
 - an A/B update and a rollback;
 - a hung kernel is reset by the watchdog.
 
-The host side of the USB gadget (RNDIS network, `iio_info -u usb:`) is checked
-by hand.
+All ten steps passed on the board on 2026-10-23 (eicke-image-sdr, both
+slots). Not verified yet: the host side of the USB gadget (RNDIS/ECM network,
+`ssh root@192.168.2.1`, `iio_info -u usb:`, the ACM console), which needs the
+OTG port plugged into a host and is checked by hand.
 
 ## Not done yet
 

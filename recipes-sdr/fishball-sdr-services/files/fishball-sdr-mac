@@ -10,6 +10,11 @@ set -e
 [ -n "$(fw_printenv -n ethaddr 2>/dev/null)" ] && exit 0
 
 # 02:xx:xx:xx:xx:xx: locally administered (bit 1), unicast (bit 0 clear).
-mac=$(od -An -N5 -tx1 /dev/urandom | tr -s ' ' ':' | sed 's/^:/02:/')
+# busybox: od has no -N, head no -c.
+mac=$(hexdump -n 5 -v -e '"02" 5/1 ":%02x"' /dev/urandom)
+echo "$mac" | grep -qxE '02(:[0-9a-f]{2}){5}' || {
+	echo "fishball-sdr-mac: no MAC generated ('$mac')" >&2
+	exit 1
+}
 fw_setenv ethaddr "$mac"
 echo "fishball-sdr-mac: ethaddr set to $mac (used from the next boot on)"

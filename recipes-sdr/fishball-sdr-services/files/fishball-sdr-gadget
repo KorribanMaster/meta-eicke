@@ -29,8 +29,11 @@ esac
 
 # The board MAC (uboot.env, fishball-sdr-mac) is the serial number and seeds
 # the USB network MACs, so they stay the same across reboots and A/B slots.
+# fw_printenv -n prints nothing and exits 0 for an unset variable.
 board_mac() {
-    fw_printenv -n ethaddr 2>/dev/null || cat /sys/class/net/eth0/address
+    mac=$(fw_printenv -n ethaddr 2>/dev/null)
+    [ -n "$mac" ] || mac=$(cat /sys/class/net/eth0/address)
+    echo "$mac"
 }
 
 # Locally administered unicast MAC from 5 bytes of a hash: 02:xx:xx:xx:xx:xx.

@@ -19,6 +19,7 @@ SRC_URI = " \
     file://fishball-sdr-mac.service \
     file://ad936x-config \
     file://ad936x-config.service \
+    file://serial-getty-ttyGS0.conf \
 "
 
 S = "${UNPACKDIR}"
@@ -50,6 +51,8 @@ do_install() {
     install -d ${D}${sysconfdir}/systemd/system/getty.target.wants
     ln -s ${systemd_system_unitdir}/serial-getty@.service \
         ${D}${sysconfdir}/systemd/system/getty.target.wants/serial-getty@ttyGS0.service
+    install -D -m 0644 ${S}/serial-getty-ttyGS0.conf \
+        ${D}${systemd_system_unitdir}/serial-getty@ttyGS0.service.d/10-fishball-sdr.conf
 }
 
 FILES:fishball-sdr-gadget = " \
@@ -59,6 +62,7 @@ FILES:fishball-sdr-gadget = " \
     ${sysconfdir}/default/iiod \
     ${sysconfdir}/systemd/network/70-usb0.network \
     ${sysconfdir}/systemd/system/getty.target.wants/serial-getty@ttyGS0.service \
+    ${systemd_system_unitdir}/serial-getty@ttyGS0.service.d \
 "
 FILES:fishball-sdr-mac = " \
     ${libexecdir}/fishball-sdr-mac \

@@ -17,10 +17,12 @@ while [ -z "$dev" ] && [ $i -lt 50 ]; do
 done
 [ -n "$dev" ] || { echo "ad936x-config: no ad9361-phy" >&2; exit 1; }
 
-xo=$(fw_printenv -n xo_correction 2>/dev/null || true)
+# fw_printenv -n prints nothing and exits 0 for an unset variable.
+xo=$(fw_printenv -n xo_correction 2>/dev/null)
 [ -z "$xo" ] || echo "$xo" > $dev/xo_correction
 
-bs=$(fw_printenv -n iio_max_block_size 2>/dev/null || echo 67108864)
+bs=$(fw_printenv -n iio_max_block_size 2>/dev/null)
+[ -n "$bs" ] || bs=67108864
 echo "$bs" > /sys/module/industrialio_buffer_dma/parameters/max_block_size
 
 echo "ad936x-config: $(cat $dev/of_node/compatible | tr '\0' ' ')xo $(cat $dev/xo_correction) Hz, max block $bs"

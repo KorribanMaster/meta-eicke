@@ -10,6 +10,8 @@ DHCPServer=yes
 # IPv4 only on the point-to-point USB link.
 LinkLocalAddressing=no
 IPv6AcceptRA=no
+# Keep 192.168.2.1 with no host plugged in (no carrier), like Pluto.
+ConfigureWithoutCarrier=yes
 
 [DHCPServer]
 PoolOffset=10
